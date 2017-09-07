@@ -1,3 +1,5 @@
+# Save this file as $HOME/.inrarec/profiles/radioparadise
+#
 STREAM_URL="http://www.radioparadise.com/m3u/mp3-128.m3u"
 GENRE="Alternative"
 COMMENT="Radio Paradise"
