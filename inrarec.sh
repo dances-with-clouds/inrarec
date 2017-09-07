@@ -121,7 +121,7 @@ DONTLIKE="$HOME/.inrarec/dontlike"
 # The syntax is quite obvious:
 # - the first example excludes a specific song by a specific artist,
 # - the second example excludes any song by a specific artist,
-# - the third example excludes a specific by any artist.
+# - the third example excludes a specific song by any artist.
 # 
 # So don't include a line saying "* - *". :)
 #
