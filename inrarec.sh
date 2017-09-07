@@ -439,7 +439,7 @@ cdrw()
 		| $CDRECORD dev=$DEVICE -sao driveropts=burnfree \
 			-gracetime=0 -data -eject fs=16m -tsize=$ts -
 		
-		[ $? -eq 0 ] && echo "$DATE: $src" >> $BURNED
+		[ $? -eq 0 ] && echo "$src" >> $BURNED
 
 	else
 		echo No CD-RW available!
