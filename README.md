@@ -51,6 +51,13 @@ machine!
 If you do find any bug or if you have suggestions for making it better,
 don't hesitate to contact me.
 
+***********************************************************************
+And last but by no means least I'd like to thank the author of fadecut 
+for the great inspiration: 
+
+T h a n k   y o u !!! :)
+
+**********************************************************************
 inrarec is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
