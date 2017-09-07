@@ -14,8 +14,6 @@ It can also be started by udev to burn or copy a previously made
 recording without further interacting: just plug in a USB drive 
 or insert a CDRW, and the process starts.
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 Wait a minute... this sounds like something that streamripper and 
 fadecut can do!
 
