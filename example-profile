@@ -1,0 +1,10 @@
+STREAM_URL="http://www.radioparadise.com/m3u/mp3-128.m3u"
+GENRE="Alternative"
+COMMENT="Radio Paradise"
+# all values in seconds:
+FADE_IN=1
+FADE_OUT=5
+TRIM_BEGIN=1
+TRIM_END=1
+ENCODING=mp3 
+
