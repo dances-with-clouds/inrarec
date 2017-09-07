@@ -20,22 +20,23 @@ Configuration / Instruction:
 
 4. If you previously used fadecut, you can use fadecut's profiles. Just set the variable PROFILEDIR appropriately.
    
-   Otherwise, just create the directory $HOME/.inrarec/profiles and place some profiles in there. You will find an example in this repository.
+   Otherwise, just create the directory $HOME/.inrarec/profiles and place some profiles in there. You will find an 
+   example in this repository.
 
 5. Go through the first part of the script and make sure all variables are set correct.
 
-6. Make sure you have installed these programms in your machine:
+6. Make sure you have installed these programs in your machine:
 
     - streamripper
     - sox
     - lame
     - id3v2
 
-  Those programms should be available in any Linux distribution.
+  Those programs should be available in any Linux distribution.
 
 7. Optional, you can install cdrecord and mkisofs, if you want to burn the downloaded songs to a CRRW
 
-  Important note: this script will burn CDRW only! No CDR! 
+  Important note: this script will burn CD-RW only! No CD-R! 
 
   The reason for this is a special volume name that is needed to start the automatic burning on headless machines. 
   And you can't set volume names on non-erasable disks, can you? ;)
@@ -47,8 +48,8 @@ Configuration / Instruction:
 
   /path/to/inrarec.sh -h 2 -p xyz -d $HOME/tmp/ -cd -k
 
-  This will record two hours (-h 2) of radio station that is defined in the profile xyz, 
-  store the recorded songs in $HOME/tmp/ and burn the songs to a cd as well. In addition, 
+  This will record two hours (-h 2) of the radio station that is defined in the profile xyz, 
+  store the recorded songs in $HOME/tmp/ (-d) and burn the songs to a cd as well. In addition, 
   it will keep (-k) the original ripped streams by streamripper.
 
 10. Keep fingers crossed not to stumble upon any bug. ;)
