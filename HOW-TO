@@ -1,0 +1,54 @@
+Configuration / Instruction:
+
+1. Place the script in $HOME/bin/ or /usr/local/bin and make it executable.
+
+2. Create a directory $HOME/.inrarec
+
+3. Create a file called $HOME/.inrarec/dontlike and place names of songs and artists in it, that you don't like. 
+   You will find an example in this repository. This file should look like this:
+
+  song title - artist
+  * - artist
+  song title - * 
+ 
+  The syntax is quite obvious:
+    - the first example excludes a specific song by a specific artist,
+    - the second example excludes any song by a specific artist,
+    - the third example excludes a specific by any artist.
+ 
+  So be aware not to include a line saying "* - *". :)
+
+4. If you previously used fadecut, you can use fadecut's profiles. Just set the variable PROFILEDIR appropriately.
+   
+   Otherwise, just create the directory $HOME/.inrarec/profiles and place some profiles in there. You will find an example in this repository.
+
+5. Go through the first part of the script and make sure all variables are set correct.
+
+6. Make sure you have installed these programms in your machine:
+
+    - streamripper
+    - sox
+    - lame
+    - id3v2
+
+  Those programms should be available in any Linux distribution.
+
+7. Optional, you can install cdrecord and mkisofs, if you want to burn the downloaded songs to a CRRW
+
+  Important note: this script will burn CDRW only! No CDR! 
+
+  The reason for this is a special volume name that is needed to start the automatic burning on headless machines. 
+  And you can't set volume names on non-erasable disks, can you? ;)
+
+8. If you want to be notified by e-mail when a recording session is finished, you have to make sure you're machine 
+   can send e-mails via smtp.
+
+9. When everything is set correctly, you can start the script by something like this:
+
+  /path/to/inrarec.sh -h 2 -p xyz -d $HOME/tmp/ -cd -k
+
+  This will record two hours (-h 2) of radio station that is defined in the profile xyz, 
+  store the recorded songs in $HOME/tmp/ and burn the songs to a cd as well. In addition, 
+  it will keep (-k) the original ripped streams by streamripper.
+
+10. Keep fingers crossed not to stumble upon any bug. ;)
