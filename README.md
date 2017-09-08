@@ -1,6 +1,4 @@
 # inrarec
-inrarec - internet radio recorder - A wrapper for streamripper.
-
 inrarec - internet radio recorder
 
 A small wrapper for streamripper.
