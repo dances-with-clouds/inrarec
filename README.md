@@ -21,9 +21,9 @@ Streamripper and fadecut are great programms, no question about it!
 
 But soon after I started to use them, I realized they did not quite 
 fit my personal needs. So I started to write a small script that would
-do the every day work for me, and it started with just 5 lines of code 
-for cron, that would download a few hours of songs from a radio station 
-and burn them onto a CD, so I could enjoy the music the next day while
+do the every day work for me. It started with just 5 lines of code 
+for a cron job that downloaded a few hours of songs from a radio station 
+and burned them onto a CD, so I could enjoy the music the next day while
 driving my truck, without getting bored and annoyed by being forced
 to listen to the "heavy rotation" loop that most FM radio station 
 transmit these days and that simply drive my mad. I hate hearing the
