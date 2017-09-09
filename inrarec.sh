@@ -214,7 +214,7 @@ USBMUSIC=/mnt/music
 # CD:
 #
 # Value (label) to give to a burned CDRW. (See below):
-CDVOLUME="One for the road..."
+VALUE="One for the road..."
 
 
 # udev stuff: 
@@ -612,7 +612,7 @@ do
 			fi
 			;;
 		 "-burnlatest")
-			 cdrw "$(findlatest)" "$CDVOLUME"
+			 cdrw "$(findlatest)" "$VALUE"
 			 exit
 			 ;;
 		"-copy2usb")
@@ -666,8 +666,15 @@ if [ "xxx$USETHEFORCE" = "xxx" ]
 then
   if [ "xxx$MAXRECORDINGS" != "xxx" ]
   then
-      RECORDINGS=$(( $RECORDINGS + 0 ))
-      if [ $MAXRECORDINGS -ge 0 -a $RECORDINGS -ge $MAXRECORDINGS ]
+
+      # convert into numerical values:
+      RECORDINGS=$(( $RECORDINGS + 1 ))
+      MAXRECORDINGS=$(( $MAXRECORDINGS + 1 )) 
+
+      # now both variables are integer values, 
+      # and thus can be compared like this:
+
+      if [ $RECORDINGS -ge $MAXRECORDINGS ]
       then
 	  echo Too many recordings found: 
 	  echo check $RECBASEDIR and delete unnecessary recordings!
