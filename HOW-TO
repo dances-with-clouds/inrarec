@@ -48,7 +48,7 @@ Configuration / Instruction:
 
   /path/to/inrarec.sh -h 2 -p xyz -d $HOME/tmp/ -cd -k
 
-  This will record two hours (-h 2) of the radio station that is defined in the profile xyz, 
+  This will record two hours (-h 2) of the radio station that is defined in the profile (-p) xyz, 
   store the recorded songs in $HOME/tmp/ (-d) and burn the songs to a cd as well. In addition, 
   it will keep (-k) the original ripped streams by streamripper.
 
