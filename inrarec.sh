@@ -155,11 +155,6 @@ STREAMRIPPER_OPTS="-o always -T -k 1 -s --with-id3v1 --codeset-filesys=UTF-8 --c
 SRLIMIT="-M 690"
 
 #
-# lame
-#
-LAME=
-
-#
 # Base dir to be used for recording, can be set via "-d <director>":
 #
 RECBASEDIR=/mnt/aufnahmen
