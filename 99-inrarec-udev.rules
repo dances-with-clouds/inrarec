@@ -1,0 +1,50 @@
+udev stuff: 
+
+To automate burning and/or copying to USB drive, you have to use udev!
+
+First, you need to create a udev rule like this:
+
+------------------- cut here -----------------------------
+#
+SUBSYSTEM=="block", KERNEL=="sr0", ACTION=="change", ENV{ID_CDROM_MEDIA_STATE}=="complete", ENV{ID_FS_LABEL}=="One_for_the_road", RUN+="/bin/su -l <yourusername> -c '/path/to/inrarec.sh -udev cd &'"
+#
+SUBSYSTEMS=="usb", KERNEL=="sd[b-z]*", ACTION=="add", ENV{ID_FS_LABEL}=="MYMUSIC", RUN+="/bin/su -l <yourusername> -c '/path/to/inrarec.sh -udev usb &'" 
+
+------------------- cut here -----------------------------
+
+
+Use the command "/sbin/udevadm info --query=all --path=/sys/block/sr0" to get appropriate arguments.
+
+Call "sudo udevadm control --reload" to activate this rule.
+
+Then you have to label the USB drive and/or the CDRW as shown above. 
+
+To set a label on a USB drive you can use the command: 
+
+  sudo fatlabel DEVICE LABEL" 
+
+To set a volume name to a CD-RW you need to burn dummy data to it first:
+
+  cdrecord -force blank=fast -gracetime=0
+  mkisofs  -V "One for the road" -J -R $HOME/tmp/some.file \
+    | cdrecord dev=/dev/sr0 -sao -gracetime=0 -data -eject fs=16m \
+    -tsize=$(mkisofs -quiet -print-size $HOME/tmp/)s -
+
+I have not yet found a way to set a volume name to a disk without burning date to it on the command line. 
+If you do know such a command, please let me know! Alternativly, you can use a GUI like k3b as well: 
+just blank the CD-RW, and then put some dummy data to it, and set the volume name that you want to use 
+later for automated burning. Just make sure, you set the variable 
+
+CDVOLUME="One for the road"
+
+to the same volume name that you used above!
+
+ 
+From now on, whenever you insert this CD-RW into your drive, the latest recording will be automatically be 
+burned onto that disk. This is espacially handy on a headless machine, and that's the reason why I included 
+this feature in the first place! :)
+
+The programm keeps track of what it has burned already, so no recording seassion will be burned twice.
+
+
+
