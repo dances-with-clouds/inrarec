@@ -219,7 +219,7 @@ USBMUSIC=/mnt/music
 # CD:
 #
 # Value (label) to give to a burned CDRW. (See below):
-VALUE="One for the road..."
+CDVOLUME="One for the road..."
 
 
 # udev stuff: 
@@ -617,7 +617,7 @@ do
 			fi
 			;;
 		 "-burnlatest")
-			 cdrw "$(findlatest)" "$VALUE"
+			 cdrw "$(findlatest)" "$CDVOLUME"
 			 exit
 			 ;;
 		"-copy2usb")
@@ -741,19 +741,19 @@ then
 	  dontlikethissongbythisartist=$(grep -i "$ARTIST - $TITLE" $DONTLIKE)
 	    
 	  if [ "xxx${dontlikethissong}" != "xxx" ] ; then
-	    echo "\"$song\": I don't like this song at all. It's listed in \"$DONTLIKE\" -> deleting..."
+	    echo "\"${song##*/}\": I don't like this song at all. It's listed in \"$DONTLIKE\" -> deleting..."
 	    rm -f "$song"
 	    continue
 	  fi
 	    
 	  if  [ "xxx${dontlikethisartist}" != "xxx" ] ; then
-	    echo "\"$song\": I don't like this artist at all. He/she is listed in \"$DONTLIKE\" -> deleting..."
+	    echo "\"${song##*/}\": I don't like this artist at all. He/she is listed in \"$DONTLIKE\" -> deleting..."
 	    rm -f "$song"
 	    continue
 	  fi
 
 	  if  [ "xxx${dontlikethissongbythisartist}" != "xxx" ] ; then
-	    echo "\"$song\": I don't like this song by this artist. It's listed in \"$DONTLIKE\" -> deleting..."
+	    echo "\"${song##*/}\": I don't like this song by this artist. It's listed in \"$DONTLIKE\" -> deleting..."
 	    rm -f "$song"
 	    continue
 	  fi
