@@ -326,9 +326,8 @@ rsync_all()
    
     for vz in "$RECBASEDIR"/[a-zA-Z0-9]*;
     do
-                 vz=${vz##*/}
- 		# do not sync while working dir exists!
-                 if [ ! -d "$RECBASEDIR"/".${vz}" ]
+  		# do not sync while working dir exists!
+                 if [ ! -d "$RECBASEDIR"/".${vz##*/}" ]
                  then
 			 usb "$vz"
                  fi
@@ -608,7 +607,7 @@ do
            	"-cd")
                 	FINALACTION="burn2cdrw"
 			echo Songs will be burned to CD-RW after download and trimming.
-			echo Make sure, there a re-writable disk is inserted!
+			echo Make sure, there is a re-writable disk inserted!
                     	shift
                     	;;
             	"-usb")
@@ -793,14 +792,9 @@ then
 fi # [ -d "$WORKINGDIR" ]
 
 case "$FINALACTION" in
-
-    "burn2cdrw")
-		cdrw "$TARGET" "$VOLUME"
-		;;
-    "copy2usb")
-		usb "$TARGET"
-		;;
-
+    "burn2cdrw") 	cdrw "$TARGET" "$VOLUME" ;;
+    "copy2usb")		usb "$TARGET";;
+    *)			echo Undefined action! ;;
 esac
 
 
