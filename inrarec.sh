@@ -820,7 +820,7 @@ SECONDS=$(($(date "+%s" --date="-d $FINISH") - $(date "+%s" --date="-d $START"))
 TDIFF=$(($(date "+%s" --date="-d $FINISH") - $(date "+%s" --date="-d $START")))
 
 
-if [ "xxx$EMAILxxx" != "xxx" ]
+if [ "xxx$EMAIL" != "xxx" ]
 then
     if [ ! -x $(which mail) ]
     then
