@@ -154,6 +154,11 @@ STREAMRIPPER_OPTS="-o always -T -k 1 -s --with-id3v1 --codeset-filesys=UTF-8 --c
 #
 SRLIMIT="-M 690"
 
+# Do you want to keep streamripper's orinal downloads? 
+# (Unedited by sox.)
+# Can be overwritten/set via command line option "-k".
+KEEPORIG="false"
+
 #
 # Base dir to be used for recording, can be set via "-d <director>":
 #
@@ -214,7 +219,7 @@ USBMUSIC=/mnt/music
 # CD:
 #
 # Value (label) to give to a burned CDRW. (See below):
-VALUE="One for the road..."
+VOLUME="One for the road..."
 
 
 # udev stuff: 
@@ -269,16 +274,15 @@ Usage:
 
 $0 [finalaction] [-k] [-p profile] [limit] [-d targetdir]
 
-<finalaction> can be one of
--cd			burn to cd after ripping and trimming
--rsync <path>		sync to <path> after ripping and trimming
-			  e.g.: -rsync /mnt/usbmemory/
+<finalaction> can be one of:
+  -cd			burn to cd after ripping and trimming
+  -usb 			copy to predefined USB drive after ripping and trimming
 
--k:			keep the original downloads from streamripper
+-k			keep the original downloads from streamripper
 
--p profile:		which profile to use
+-p profile		which profile to use
 
--d targetdir:		where to store the recording(s).
+-d targetdir		where to store the recording(s).
 
 limit can be one of:
 
@@ -294,81 +298,102 @@ Default station:	Radio Paradise
 
 Alternate usage (use with caution!):
 
-$0 -copy2usb | -burnlatest
+$0 -all2usb | -burnlatest
 
--copy2usb		copy *all* recordings to a predefined USB drive.
--burnlatest		burn the *latest* recording to a CD(RW).
+-all2usb		copy *all* recordings to a predefined USB drive.
+-burnlatest		burn the *latest* recording to a CD-RW.
 
 
 EOF
 exit
 }
 
-do_rsync()
+
+rsync_all()
 {
+
   if [ ! -x $(which rsync) ]
   then
+
     echo
     echo Error: rsync not found or not executable! 
     echo 
     echo Downloading songs is still possible, but if you want to copy them
     echo to some other place \(e.g. a USB drive\), rsync is required!
     echo
-  else
-	dest="$1"
 
-        for vz in "$RECBASEDIR"/[a-zA-Z0-9]*;
-        do
-                vz=${vz##*/}
-		# do not sync while working dir exists!
-                if [ ! -d "$RECBASEDIR"/".${vz}" ]
-                then
-                        nice -n 19 rsync -a --exclude ".*/" --exclude ".*" "$RECBASEDIR"/"$vz" "$dest/"
-                fi
-        done
-	
-	sync
+  else
+   
+    for vz in "$RECBASEDIR"/[a-zA-Z0-9]*;
+    do
+                 vz=${vz##*/}
+ 		# do not sync while working dir exists!
+                 if [ ! -d "$RECBASEDIR"/".${vz}" ]
+                 then
+			 usb "$vz"
+                 fi
+    done
+
   fi
 }
 
 
-copy2usb()
+usb()
 {	
 
-	IFS=$TMPIFS
-	dest="$1"
-	mount "$dest"
+  IFS=$TMPIFS
 
-	if ! mountpoint -q "$dest";
-	then
+  src="$1"
+
+  if [ ! -x $(which rsync) ]
+  then
+
+    echo
+    echo Error: rsync not found or not executable! 
+    echo 
+    echo Downloading songs is still possible, but if you want to copy them
+    echo to some other place \(e.g. a USB drive\), rsync is required!
+    echo
+
+  else
+
+    mount "$USBMUSIC"
+
+    if ! mountpoint -q "$USBMUSIC";
+    then
         	date | mail -s 'Target can not be mounted!' $EMAIL
 	        exit
-	fi
+    fi
 
-	free=$(df "$dest" --output=avail | tail -1)
-	needed=$(du -s "$src" | cut -f1)
+    free=$(df "$USBMUSIC" --output=avail | tail -1)
+    needed=$(du -s "$src" | cut -f1)
 
-	## turn contents into numerical values:
-	free=$(( $free + 1 ))
-	needed=$(( $needed + 1 ))
+    ## turn contents into numerical values:
+    free=$(( $free + 1 ))
+    needed=$(( $needed + 1 ))
 
-	
-	if [ $needed -gt $free ];
-	then
+    if [ $needed -gt $free ];
+    then
 	       echo Not enough space left on device! | mail -s "No music today" $EMAIL
-	       umount $dest
-	       exit
-	fi
+    else
 
-	do_rsync "$dest"
+      nice -n 19 rsync -a --exclude ".*/" --exclude ".*" "$src" "$USBMUSIC"
+      sync
+      umount "$USBMUSIC"
 
-	umount "$dest"
-
-	IFS=$OLDIFS
+    fi
+    IFS=$OLDIFS
+  
+  fi
 }
 
 cdrw()
 {
+
+  src="$1"
+  volume="$2"
+
+
   if [ ! -x $CDRECORD ]
   then
 
@@ -392,9 +417,6 @@ cdrw()
 
 	IFS=$TMPIFS
 
-	src="$1"
-	value="$2"
-
 	if [ "xxx$src" = "xxx" ]
 	then
 		echo I\'ll stay cool because there\'s nothing to burn...
@@ -407,12 +429,12 @@ cdrw()
 	
 		#echo "$graft"
 	       	#echo "$src" 
-		#echo "$value"
+		#echo "$volume"
         	#exit
  
 		ts=$($MKISOFS -quiet -print-size "$src"/)s
 		$CDRECORD dev=$DEVICE -force blank=fast -gracetime=0
-		$MKISOFS -V "$value" -J -R -graft-points "$graft"="$src" \
+		$MKISOFS -V "$volume" -J -R -graft-points "$graft"="$src" \
 		| $CDRECORD dev=$DEVICE -sao driveropts=burnfree \
 			-gracetime=0 -data -eject fs=16m -tsize=$ts -
 		
@@ -458,12 +480,12 @@ fadeout()
   
   FILE="$1"
   DEST="$2"
- 
-  echo "Trimming ${FILE}..."
- 
+   
   TIMESTAMP="$(date -R -r "$FILE")"
   BASENAME="${FILE##*/}"
-  
+
+  echo "Trimming ${BASENAME}..." 
+ 
   #echo
   # echo $BASENAME
   #echo $TMPFILE
@@ -548,16 +570,7 @@ do
 			shift
 			shift
 			;;
-            	"-cd")
-                	FINALACTION="cdrw"
-                    	shift
-                    	;;
-            	"-rsync")
-                    	FINALACTION="copy2usb \"$USBMUSIC\""
-			shift
-                    	shift
-                    	;;
-		"-p")
+ 		"-p")
 			PROFILE=$2
 			shift
 			shift
@@ -592,6 +605,18 @@ do
 			shift
 			shift
 			;;
+           	"-cd")
+                	FINALACTION="burn2cdrw"
+			echo Songs will be burned to CD-RW after download and trimming.
+			echo Make sure, there a re-writable disk is inserted!
+                    	shift
+                    	;;
+            	"-usb")
+                    	FINALACTION="copy2usb"
+			echo Songs will be copied to USB drive after download and trimming.
+			echo Make sure, the drive is plugged in!
+			shift
+                    	;;
 		"-udev")
 			# script has been started by udev
 			#
@@ -604,7 +629,7 @@ do
 			     exit			     
 			elif [ "$2" = "usb" ]
 			then
-			     echo "$0 -copy2usb" | /usr/bin/at now + 1 minute	
+			     echo "$0 -all2usb" | /usr/bin/at now + 1 minute	
 			     exit			     
 			else
 			    echo Unknown pair of arguments: "$1" "$2"
@@ -612,11 +637,11 @@ do
 			fi
 			;;
 		 "-burnlatest")
-			 cdrw "$(findlatest)" "$VALUE"
+			 cdrw "$(findlatest)" "$VOLUME"
 			 exit
 			 ;;
-		"-copy2usb")
-			copy2usb "$USBMUSIC"
+		"-all2usb")
+			rsync_all 
 			exit
 			;;
 		  "-f")
@@ -701,25 +726,22 @@ fi
 if [ "xxx$FINALACTION" = "xxx" ];
 then
         echo After ripping and trimming, no further action will be taken!
-	# FINALACTION="echo Done!"
 fi
 
 
 echo $START: Starting recording in \"${WORKINGDIR}\"...
 renice -n 19 $$
-
-mkdir -p "$TARGET"
 mkdir -p "$WORKINGDIR"/{new,error,incomplete,orig}
 
 streamripper $STREAM_URL $STREAMRIPPER_OPTS $SRLIMIT -d "$WORKINGDIR"
 
+mkdir -p "$TARGET"
 IFS=$TMPIFS
-
 number=$(ls -1 "$WORKINGDIR"/*.mp3 | wc -l)
 digits=${#number}
-
 ALLSONGS=""
-if [ -d "$WORKINGDIR" ];
+
+if [ -d "$WORKINGDIR" ]
 then
   # sort by reverse date (oldest file first):
   ALLSONGS=$(ls -1rt "$WORKINGDIR/"*.mp3)
@@ -759,22 +781,34 @@ then
 	    rm -f "$song"
 	    continue
 	  fi
-      fi
+      fi # [ -e $DONTLIKE ]
 
       fadeout "$song" "$DEST" "$TIMESTAMP"
       i=$(( i + 1))
 
     done
 
-  fi
+  fi #[ "xxx$ALLSONGS" != "xxx" ]
 
-fi
+fi # [ -d "$WORKINGDIR" ]
 
-if [ "xxx$KEEPORIG" = "xxxtrue" ]
+case "$FINALACTION" in
+
+    "burn2cdrw")
+		cdrw "$TARGET" "$VOLUME"
+		;;
+    "copy2usb")
+		usb "$TARGET"
+		;;
+
+esac
+
+
+if [ "$KEEPORIG" = "true" ]
 then
   mkdir -p "$TARGET"/orig
-  echo You will find the original downloads in "$TARGET"/orig!
   mv "$WORKINGDIR"/*.mp3 "$TARGET"/orig/
+  echo You will find the original downloads in "$TARGET"/orig!
 fi
 
 rm -rf "$WORKINGDIR"
@@ -783,7 +817,10 @@ rm -rf "$WORKINGDIR"
 
 IFS=$OLDIFS
 
-$FINALACTION
+
+
+
+
 FINISH=$(date "+%F %X")
 SECONDS=$(($(date "+%s" --date="-d $FINISH") - $(date "+%s" --date="-d $START")))
 TDIFF=$(($(date "+%s" --date="-d $FINISH") - $(date "+%s" --date="-d $START")))
