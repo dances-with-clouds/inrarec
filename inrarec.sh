@@ -6,6 +6,8 @@
 # 
 # A small wrapper for streamripper.
 # 
+# Version/Date: 2017-09-10
+#
 # This script uses streamripper to record internet streams transmitted by
 # internet radio stations, and then it uses sox to split those streams 
 # into separate songs and to add a little fading. It can also burn the 
