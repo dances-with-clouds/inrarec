@@ -201,8 +201,7 @@ MKISOFS=/opt/schily/bin/mkisofs
 # the binaries "/usr/bin/cdrecord" and "/usr/bin/mkisofs", those binaries
 # behave diffently than the original "cdrecord" package and sometimes
 # "wodim" won't burn a CD from the command line. So I highly recomment to
-# install the "cdrecord" package provided that can be found on
-# http://cdrecord.org/
+# install the "cdrecord" package provided on http://cdrecord.org/
 #
 
 # The CD-RW device:
