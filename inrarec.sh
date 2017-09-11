@@ -6,7 +6,7 @@
 # 
 # A small wrapper for streamripper.
 # 
-# Version/Date: 2017-09-10
+# Version/Date: 2017-09-11
 #
 # This script uses streamripper to record internet streams transmitted by
 # internet radio stations, and then it uses sox to split those streams 
@@ -85,9 +85,14 @@
 EMAIL=""
 
 #
+# Configuration directory:
+#
+RCDIR="$HOME/.inrarec/"
+
+#
 #
 # Which file contains names and titles of unwanted artists and songs?
-DONTLIKE="$HOME/.inrarec/dontlike"
+DONTLIKE="$RCDIR/dontlike"
 
 #
 # Using a file for unliked songs enables this script to exclude certain 
@@ -112,7 +117,7 @@ DONTLIKE="$HOME/.inrarec/dontlike"
 
 # 
 # profile dir
-PROFILEDIR=$HOME/.inrarec/profiles
+PROFILEDIR="$RCDIR/profiles"
 
 # 
 # The profiles that this script uses are identical to the ones that 
@@ -191,6 +196,7 @@ MKISOFS=/opt/schily/bin/mkisofs
 # following two lines:
 #CDRECORD=$(which cdrecord)
 #MKISOFS=$(which mkisofs)
+#
 
 
 # The CD-RW device:
