@@ -233,7 +233,7 @@ USBMUSIC=/mnt/music
 # CD:
 #
 # Value (label) to give to a burned CDRW. (See below):
-VOLUME="One for the road..."
+VOLUME="One for the road"
 
 
 # udev stuff: 
