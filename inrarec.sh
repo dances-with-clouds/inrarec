@@ -121,7 +121,7 @@ PROFILEDIR="$RCDIR/profiles"
 
 # 
 # The profiles that this script uses are identical to the ones that 
-# fadecut uses. If you have fadecut profiles, you can even set 
+# fadecut uses. If you have fadecut profiles in use, you can even set 
 #
 # PROFILEDIR=$HOME/.fadecut/profiles 
 #
