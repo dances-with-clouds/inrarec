@@ -6,7 +6,7 @@
 # 
 # A small wrapper for streamripper.
 # 
-# Version/Date: 2017-09-11
+# Version/Date: 2017-09-14
 #
 # This script uses streamripper to record internet streams transmitted by
 # internet radio stations, and then it uses sox to split those streams 
@@ -121,7 +121,7 @@ PROFILEDIR="$RCDIR/profiles"
 
 # 
 # The profiles that this script uses are identical to the ones that 
-# fadecut uses. If you have fadecut profiles in use, you can even set 
+# fadecut uses. If you have fadecut profiles in use, you can even set
 #
 # PROFILEDIR=$HOME/.fadecut/profiles 
 #
@@ -386,10 +386,12 @@ usb()
 
     if [ $needed -gt $free ];
     then
-	       echo Not enough space left on device! | mail -s "No music today" $EMAIL
+	echo
+	echo Not enough space left on device! | mail -s "No music today" $EMAIL
+	echo
     else
 
-      nice -n 19 rsync -a --exclude ".*/" --exclude ".*" "$src" "$USBMUSIC"
+      nice -n 19 rsync -a --ignore-existing --exclude ".*/" --exclude ".*" "$src" "$USBMUSIC"
       sync
       umount "$USBMUSIC"
 
@@ -404,7 +406,6 @@ cdrw()
 
   src="$1"
   volume="$2"
-
 
   if [ ! -x $CDRECORD ]
   then
@@ -424,6 +425,7 @@ cdrw()
     echo 
     echo Downloading songs is still possible, but if you want to burn them
     echo to a CDRW, mkisofs is required! 
+    echo
  
   else
 
@@ -431,29 +433,40 @@ cdrw()
 
 	if [ "xxx$src" = "xxx" ]
 	then
+		echo
 		echo I\'ll stay cool because there\'s nothing to burn...
+		echo
 		return
 	fi
 
 	if $CDRECORD -minfo | grep -E 'Mounted media type: +CD-RW';
 	then
-		graft=${src##*/}
-	
-		#echo "$graft"
-	       	#echo "$src" 
-		#echo "$volume"
-        	#exit
- 
-		ts=$($MKISOFS -quiet -print-size "$src"/)s
+		echo
+		echo Blanking the disc...
+		echo
+
 		$CDRECORD dev=$DEVICE -force blank=fast -gracetime=0
-		$MKISOFS -V "$volume" -J -R -graft-points "$graft"="$src" \
+		
+		echo
+		echo Burning contents of \"$src\"...
+		echo
+
+		graft=${src##*/}
+		ts=$($MKISOFS -quiet -print-size "$src"/)s
+		$MKISOFS -quiet -V "$volume" -J -R -graft-points "$graft"="$src" \
 		| $CDRECORD dev=$DEVICE -sao driveropts=burnfree \
 			-gracetime=0 -data -eject fs=16m -tsize=$ts -
+
+		echo
+		echo Finished!
+		echo
 		
 		[ $? -eq 0 ] && echo "$src" >> $BURNED
 
 	else
+		echo
 		echo No CD-RW available!
+		echo
 	fi
 	IFS=$OLDIFS
   fi
@@ -483,7 +496,11 @@ findlatest()
 		     break
 		  fi
 	done
-	echo "$found"
+
+	# echo
+	# echo "$found"
+	# echo
+
 	IFS=$OLDIFS
 }
 
@@ -619,14 +636,18 @@ do
 			;;
            	"-cd")
                 	FINALACTION="burn2cdrw"
+			echo
 			echo Songs will be burned to CD-RW after download and trimming.
 			echo Make sure, there is a re-writable disk inserted!
+			echo
                     	shift
                     	;;
             	"-usb")
                     	FINALACTION="copy2usb"
+			echo
 			echo Songs will be copied to USB drive after download and trimming.
 			echo Make sure, the drive is plugged in!
+			echo
 			shift
                     	;;
 		"-udev")
@@ -644,7 +665,9 @@ do
 			     echo "$0 -all2usb" | /usr/bin/at now + 1 minute	
 			     exit			     
 			else
+			    echo
 			    echo Unknown pair of arguments: "$1" "$2"
+			    echo
 			    exit
 			fi
 			;;
@@ -680,6 +703,7 @@ fi
 
 if [ ! -d "$RECBASEDIR" ]
 then
+  echo
   echo $RECBASEDIR does not exist and can not be created!
   echo
   echo Create it manually or set the variable RECBASEDIR 
@@ -713,6 +737,7 @@ then
 
       if [ $RECORDINGS -ge $MAXRECORDINGS ]
       then
+	  echo
 	  echo Too many recordings found: 
 	  echo check $RECBASEDIR and delete unnecessary recordings!
 	  echo 
@@ -727,6 +752,7 @@ if [ "xxx$USETHEFORCE" = "xxx" ]
 then
   if [ -d "$WORKINGDIR" ]
   then
+	  echo
 	  echo Directory \"$WORKINGDIR\" already exists. Is there a recording running?
 	  echo 
 	  echo Maybe you should use the force, Luke...
@@ -737,11 +763,14 @@ fi
 
 if [ "xxx$FINALACTION" = "xxx" ];
 then
+	echo
         echo After ripping and trimming, no further action will be taken!
+	echo
 fi
 
-
+echo
 echo $START: Starting recording in \"${WORKINGDIR}\"...
+echo
 renice -n 19 $$
 mkdir -p "$WORKINGDIR"/{new,error,incomplete,orig}
 
@@ -766,6 +795,12 @@ then
       ARTIST=$(id3v2 -l "$song" | sed -e '/TPE1/!d' -e 's/^.*: //g')
       TITLE=$(id3v2 -l "$song" | sed -e '/TIT2/!d' -e 's/^.*: //g')
 
+      #
+      # A leading number is added to the file name, so that the songs 
+      # can always be played in the same order they where broadcasted,
+      # regardless which file system is used or if the timestamps get 
+      # lost while moving or copying the files later.
+      # 
       number=$(printf "%0${digits}d\n" $i)
       newname="$number - ${song##*/}"
       DEST="$TARGET"/"${newname}"
@@ -815,7 +850,9 @@ if [ "$KEEPORIG" = "true" ]
 then
   mkdir -p "$TARGET"/orig
   mv "$WORKINGDIR"/*.mp3 "$TARGET"/orig/
+  echo
   echo You will find the original downloads in "$TARGET"/orig!
+  echo
 fi
 
 rm -rf "$WORKINGDIR"
@@ -823,10 +860,6 @@ rm -rf "$WORKINGDIR"
 ########################################################################
 
 IFS=$OLDIFS
-
-
-
-
 
 FINISH=$(date "+%F %X")
 SECONDS=$(($(date "+%s" --date="-d $FINISH") - $(date "+%s" --date="-d $START")))
@@ -844,10 +877,14 @@ then
       echo by e-mail afterwards, a functioning mail system is required!
       echo
     else
+      echo
       echo ... on \"$TARGET\" | mail -s "Thank you for the music..." $EMAIL
+      echo
     fi
 else
+  echo
   echo $FINISH: Done! The job took me $(printf '%02dh:%02dm:%02ds\n' $(($TDIFF/3600)) $(($TDIFF%3600/60)) $(($TDIFF%60))). 
   echo Check for new music in \"$TARGET\" and enjoy!
+  echo
 fi
 
