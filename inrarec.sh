@@ -692,7 +692,6 @@ do
 			    exit
 			fi
 			SRLIMIT="-l $(( $2 * 60 * 60))"
-			exit
 			shift
 			shift
 			;;
@@ -915,7 +914,7 @@ then
   mkdir -p "$TARGET"/orig
   mv "$WORKINGDIR"/*.* "$TARGET"/orig/
   echo
-  echo You will find the original downloads in \"$TARGET/orig\"!
+  echo You will find the original downloads in \"$TARGET/orig/\"!
   echo
 fi
 
@@ -939,7 +938,7 @@ then
       echo
     else
       echo
-      echo ... on \"$TARGET\" | mail -s "Thank you for the music..." $EMAIL
+      echo ... on \"$TARGET/\" | mail -s "Thank you for the music..." $EMAIL
       echo
     fi
 
@@ -950,7 +949,7 @@ else
   TDIFF=$(($(date "+%s" --date="-d $FINISH") - $(date "+%s" --date="-d $START")))
   echo
   echo $FINISH: Done! The job took me $(printf '%02dh:%02dm:%02ds\n' $(($TDIFF/3600)) $(($TDIFF%3600/60)) $(($TDIFF%60))). 
-  echo Check for new music in \"$TARGET\" and enjoy!
+  echo Check for new music in \"$TARGET/\" and enjoy!
   echo
 
 fi
