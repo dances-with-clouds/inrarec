@@ -546,10 +546,12 @@ fadeout()
   TRIMLENGTH=$((LENGTH - TRIM_BEGIN - TRIM_END))
   FADE_OUT_START=$((TRIMLENGTH - FADE_OUT))
 
-  ffmpeg -nostats -loglevel 0 -i "$FILE"  -f wav - |  ffmpeg -nostats -loglevel 0 -i - \
-    -ss $TRIM_BEGIN -t $TRIMLENGTH \
-    -af "afade=t=in:ss=0:d=$FADE_IN,afade=t=out:st=$FADE_OUT_START:d=$FADE_OUT" \
-    "$DEST"
+  ffmpeg -hide_banner -nostats -loglevel 0 -i "$FILE"  -f wav - \
+    |  ffmpeg -hide_banner -nostats -loglevel 0 -i - \
+	-ss $TRIM_BEGIN -t $TRIMLENGTH \
+	-af "afade=t=in:ss=0:d=$FADE_IN,afade=t=out:st=$FADE_OUT_START:d=$FADE_OUT" \
+	"$DEST"
+
   #
   # Question:	Why am I piping ffmpeg into ffmpeg? 
   #
@@ -876,7 +878,7 @@ do
 
       if [ $(checkdontlike "$SONG") = "like" ]
       then
-	  echo  ${SONG##*/}: adding fade out...
+	  # echo  ${SONG##*/}: adding fade out...
 	  fadeout "$SONG" "$DEST"
 	  i=$(( i + 1))
       else
