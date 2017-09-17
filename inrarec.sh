@@ -515,14 +515,27 @@ checkdontlike()
   # Most likely this three greps could be melted into one, but I did not
   # want to make it look too complicated.
 
-  dontlike="${thissong}${thisartist}${thissongbythisartist}"
-  
-   if [ "xxx${dontlike}" = "xxx" ]
-   then
-     echo "like"
-   else	
-     echo "dontlike"
-   fi
+#   dontlike="${thissong}${thisartist}${thissongbythisartist}"
+#     
+#    if [ "xxx${dontlike}" = "xxx" ]
+#    then
+#      echo "like"
+#    else	
+#      echo "dontlike"
+#   fi
+
+    if [ "xxx${thissong}" != "xxx" ]
+    then
+	echo I don\'t like this song!
+    elif [ "xxx${thisartist}" != "xxx" ]
+    then
+	echo I don\'t like this artist!
+    elif [ "xxx${thissongbythisartist}" != "xxx" ]
+    then
+	echo I don\'t like this song by this artist!
+    else
+	echo I like this song!
+    fi
   
 }
 
@@ -834,7 +847,7 @@ echo
 renice -n 19 $$
 mkdir -p "$WORKINGDIR"/{new,error,incomplete,orig}
 
-streamripper $STREAM_URL $STREAMRIPPER_OPTS $SRLIMIT -d "$WORKINGDIR"
+# streamripper $STREAM_URL $STREAMRIPPER_OPTS $SRLIMIT -d "$WORKINGDIR"
 
 SREX=$?
  
@@ -876,13 +889,15 @@ do
       NEWNAME="$NUMBER - ${SONG##*/}"
       DEST="$TARGET"/"${NEWNAME%%.*}.mp3"
 
-      if [ $(checkdontlike "$SONG") = "like" ]
+      TASTE=$(checkdontlike "$SONG")
+
+      if [ "$TASTE" = "I like this song!" ]
       then
 	  # echo  ${SONG##*/}: adding fade out...
 	  fadeout "$SONG" "$DEST"
 	  i=$(( i + 1))
       else
-	  echo ${SONG##*/}: I do not like this song... deleting!
+	  echo ${SONG##*/}: $TASTE -\> deleting!
 	  rm -f "$SONG"
       fi
 
