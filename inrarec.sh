@@ -515,14 +515,6 @@ checkdontlike()
   # Most likely this three greps could be melted into one, but I did not
   # want to make it look too complicated.
 
-#   dontlike="${thissong}${thisartist}${thissongbythisartist}"
-#     
-#    if [ "xxx${dontlike}" = "xxx" ]
-#    then
-#      echo "like"
-#    else	
-#      echo "dontlike"
-#   fi
 
     if [ "xxx${thissong}" != "xxx" ]
     then
