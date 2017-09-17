@@ -546,7 +546,7 @@ fadeout()
   TRIMLENGTH=$((LENGTH - TRIM_BEGIN - TRIM_END))
   FADE_OUT_START=$((TRIMLENGTH - FADE_OUT))
 
-  ffmpeg -i "$FILE"  -f wav - |  ffmpeg -i - \
+  ffmpeg -nostats -loglevel 0 -i "$FILE"  -f wav - |  ffmpeg -nostats -loglevel 0 -i - \
     -ss $TRIM_BEGIN -t $TRIMLENGTH \
     -af "afade=t=in:ss=0:d=$FADE_IN,afade=t=out:st=$FADE_OUT_START:d=$FADE_OUT" \
     "$DEST"
