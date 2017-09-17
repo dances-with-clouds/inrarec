@@ -257,7 +257,9 @@ VOLUME="One for the road"
 # 
 # This is espacially handy on a headless machine, and that's the reason 
 # why I included this feature in the first place! :)
+#
 # 
+KEEPWORKINGDIR="false"
 #
 #####################################################################
 ####
@@ -504,17 +506,19 @@ findlatest()
 checkdontlike()
 {
     
-  SONG="$1" 
-   
-  ARTIST=$(id3v2 -l "$SONG" | sed -e '/TPE1/!d' -e 's/^.*: //g')
-  TITLE=$(id3v2 -l "$SONG" | sed -e '/TIT2/!d' -e 's/^.*: //g')
+  #SONG="$1" 
+  # 
+  #ARTIST=$(ffprobe -v error -show_entries format_tags=artist -of default=noprint_wrappers=1:nokey=1 "$SONG") 
+  #TITLE=$(ffprobe -v error -show_entries format_tags=title -of default=noprint_wrappers=1:nokey=1 "$SONG")
+
+  local ARTIST="$1"
+  local TITLE="$2"
 
   thissong=$(grep -i "\* - $TITLE" $DONTLIKE)
   thisartist=$(grep -i "$ARTIST - \*" $DONTLIKE)
   thissongbythisartist=$(grep -i "$ARTIST - $TITLE" $DONTLIKE)
   # Most likely this three greps could be melted into one, but I did not
   # want to make it look too complicated.
-
 
     if [ "xxx${thissong}" != "xxx" ]
     then
@@ -535,16 +539,13 @@ checkdontlike()
 fadeout()
 {
   
-  FILE="$1"
-  DEST="$2"
+  local FILE="$1"
+  local DEST="$2"
    
   TIMESTAMP="$(date -R -r "$FILE")"
   SONG="${FILE##*/}"
   
   LENGTH=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$FILE")
-  ARTIST=$(ffprobe -v error -show_entries format_tags=artist -of default=noprint_wrappers=1:nokey=1 "$FILE") 
-  TITLE=$(ffprobe -v error -show_entries format_tags=title -of default=noprint_wrappers=1:nokey=1 "$FILE")
-
   LENGTH=${LENGTH%%.*}
   TRIMLENGTH=$((LENGTH - TRIM_BEGIN - TRIM_END))
   FADE_OUT_START=$((TRIMLENGTH - FADE_OUT))
@@ -749,6 +750,10 @@ do
 			  USETHEFORCE="true"
 			  shift
 			  ;;
+		  "-KWD")
+			KEEPWORKINGDIR="true"
+			shift
+			;;
 		*)
                     help
                     exit
@@ -824,26 +829,22 @@ then
   fi
 fi
 
-if [ "xxx$FINALACTION" = "xxx" ];
-then
-	echo
-        echo After ripping and trimming, no further action will be taken!
-fi
-
 echo
 echo $START: Starting recording in \"${WORKINGDIR}\"...
 echo
+
 renice -n 19 $$
+
 mkdir -p "$WORKINGDIR"/{new,error,incomplete,orig}
 
 streamripper $STREAM_URL $STREAMRIPPER_OPTS $SRLIMIT -d "$WORKINGDIR"
 
-SREX=$?
+SR_EX=$?
  
-if [ ! $SREX -eq 0 ]
+if [ ! $SR_EX -eq 0 ]
 then	
   echo
-  echo Streamripper exited with error code $SREX!
+  echo Streamripper exited with error code $SR_EX!
   echo
   exit
 fi
@@ -854,8 +855,8 @@ mkdir -p "$TARGET"
 IFS=$TMPIFS
 
 NUMBER=$(ls -1 "$WORKINGDIR"/*.* | wc -l)
-digits=${#NUMBER}
-ALLSONGS=""
+DIGITS=${#NUMBER}
+ALLFILES=""
 
 if [ ! -d "$WORKINGDIR" ]
 then
@@ -864,30 +865,35 @@ then
 fi
 
 # sort by reverse date (oldest file first):
-ALLSONGS=$(ls -1rt "$WORKINGDIR/"*.*)
-if [ "xxx$ALLSONGS" = "xxx" ]
+ALLFILES=$(ls -1rt "$WORKINGDIR/"*.*)
+if [ "xxx$ALLFILES" = "xxx" ]
 then	
   echo There are no songs to work on! Exiting...
   exit
 fi
 
 i=1
-for SONG in $ALLSONGS
+for FILE in $ALLFILES
 do
-      NUMBER=$(printf "%0${digits}d\n" $i)
-      NEWNAME="$NUMBER - ${SONG##*/}"
-      DEST="$TARGET"/"${NEWNAME%.*}.mp3"
+      NUMBER=$(printf "%0${DIGITS}d\n" $i)
 
-      TASTE=$(checkdontlike "$SONG")
+      SONGNAME="${FILE##*/}" # stripping path
+      SONGNAME="${SONGNAME%.*}" # stripping extension
+      DEST="$TARGET/$NUMBER - $SONGNAME".mp3
+
+      ARTIST=$(ffprobe -v error -show_entries format_tags=artist -of default=noprint_wrappers=1:nokey=1 "$FILE") 
+      TITLE=$(ffprobe -v error -show_entries format_tags=title -of default=noprint_wrappers=1:nokey=1 "$FILE")
+
+      TASTE=$(checkdontlike "$ARTIST" "$TITLE")
 
       if [ "$TASTE" = "I like this song!" ]
       then
-	  echo ${SONG##*/}: adding fade out...
-	  fadeout "$SONG" "$DEST"
+	  echo $SONGNAME -\> fading out...
+	  fadeout "$FILE" "$DEST"
 	  i=$(( i + 1))
       else
-	  echo ${SONG##*/}: $TASTE -\> deleting!
-	  rm -f "$SONG"
+	  echo $SONGNAME: -\> deleting, because $TASTE!
+	  rm -f "$FILE"
       fi
 
 done # for SONG in $ALLSONGS
@@ -910,7 +916,15 @@ then
   echo
 fi
 
-rm -rf "$WORKINGDIR"
+if [ "$KEEPWORKINGDIR" = "true" ]
+then
+  echo
+  echo Working directory \"$WORKINGDIR\" will not be deleted!
+  echo
+else
+   rm -rf "$WORKINGDIR"
+fi
+
 
 ########################################################################
 
