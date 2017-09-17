@@ -3,9 +3,9 @@ inrarec - internet radio recorder
 
 A small wrapper for streamripper.
 
-This script uses streamripper to record internet streams transmitted by
-internet radio stations, and then it uses sox to split those streams 
-into separate songs and to add a little fading. It can also burn the 
+This script uses streamripper to record songs transmitted by 
+internet radio stations, and then it uses ffmpeg to add a little
+fading and to convert the songs to mp3. It can also burn the 
 songs to a CDRW or copy them onto a USB drive.
 
 It can also be started by udev to burn or copy a previously made 
