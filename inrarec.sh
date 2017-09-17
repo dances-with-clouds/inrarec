@@ -884,7 +884,7 @@ for SONG in $ALLSONGS
 do
       NUMBER=$(printf "%0${digits}d\n" $i)
       NEWNAME="$NUMBER - ${SONG##*/}"
-      DEST="$TARGET"/"${NEWNAME%%.*}.mp3"
+      DEST="$TARGET"/"${NEWNAME%.*}.mp3"
 
       TASTE=$(checkdontlike "$SONG")
 
