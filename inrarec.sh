@@ -890,7 +890,7 @@ done # for SONG in $ALLSONGS
 
 
 case "$FINALACTION" in
-    "")			echo No final action defined... ;;
+    "")			echo; echo Finished! ;;
     "burn2cdrw") 	cdrw "$TARGET" "$VOLUME" ;;
     "copy2usb")		usb "$TARGET";;
     *)			echo Undefined action! ;;
@@ -922,7 +922,7 @@ then
     if [ ! -x $(which mail) ]
     then
       echo
-      echo Error: mail not found or not executable! 
+      echo Error: mail command not found or not executable! 
       echo 
       echo Downloading songs is still possible, but if you want to be notified
       echo by e-mail afterwards, a functioning mail system is required!
