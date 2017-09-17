@@ -549,8 +549,6 @@ fadeout()
   TIMESTAMP="$(date -R -r "$FILE")"
   SONG="${FILE##*/}"
   
-  echo "Trimming ${SONG}..." 
-
   LENGTH=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$FILE")
   ARTIST=$(ffprobe -v error -show_entries format_tags=artist -of default=noprint_wrappers=1:nokey=1 "$FILE") 
   TITLE=$(ffprobe -v error -show_entries format_tags=title -of default=noprint_wrappers=1:nokey=1 "$FILE")
@@ -893,7 +891,7 @@ do
 
       if [ "$TASTE" = "I like this song!" ]
       then
-	  # echo  ${SONG##*/}: adding fade out...
+	  echo ${SONG##*/}: adding fade out...
 	  fadeout "$SONG" "$DEST"
 	  i=$(( i + 1))
       else
