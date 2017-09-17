@@ -6,12 +6,12 @@
 # 
 # A small wrapper for streamripper.
 # 
-# Version/Date: 2017-09-14
+# Version/Date: 2017-09-17
 #
 # This script uses streamripper to record internet streams transmitted by
-# internet radio stations, and then it uses sox to split those streams 
-# into separate songs and to add a little fading. It can also burn the 
-# songs to a CDRW or copy them onto a USB drive.
+# internet radio stations, and then it uses ffmpeg to add a little fading 
+# at the beginning and the end, to get rid of any voice over and adds.
+# It can also burn the songs to a CDRW or copy them onto a USB drive.
 # 
 # It can also be started by udev to burn or copy a previously made 
 # recording without further interacting: just plug in a USB drive 
@@ -162,7 +162,7 @@ STREAMRIPPER_OPTS="-o always -T -k 1 -s --with-id3v1 --codeset-filesys=UTF-8 --c
 SRLIMIT="-M 690"
 
 # Do you want to keep streamripper's orinal downloads? 
-# (Unedited by sox.)
+# (Unedited by ffmpeg.)
 # Can be overwritten/set via command line option "-k".
 KEEPORIG="false"
 
@@ -285,16 +285,14 @@ cat<<EOF
 
 Usage:
 
-$0 [finalaction] [-k] [-p profile] [limit] [-d targetdir]
+${0##*/} [finalaction] [-k] [-p profile] [limit] [-d targetdir]
 
 <finalaction> can be one of:
   -cd			burn to cd after ripping and trimming
   -usb 			copy to predefined USB drive after ripping and trimming
 
 -k			keep the original downloads from streamripper
-
 -p profile		which profile to use
-
 -d targetdir		where to store the recording(s).
 
 limit can be one of:
@@ -311,11 +309,10 @@ Default station:	Radio Paradise
 
 Alternate usage (use with caution!):
 
-$0 -all2usb | -burnlatest
+${0##*/} -all2usb | -burnlatest
 
 -all2usb		copy *all* recordings to a predefined USB drive.
 -burnlatest		burn the *latest* recording to a CD-RW.
-
 
 EOF
 exit
@@ -504,6 +501,32 @@ findlatest()
 	IFS=$OLDIFS
 }
 
+checkdontlike()
+{
+    
+  SONG="$1" 
+   
+  ARTIST=$(id3v2 -l "$SONG" | sed -e '/TPE1/!d' -e 's/^.*: //g')
+  TITLE=$(id3v2 -l "$SONG" | sed -e '/TIT2/!d' -e 's/^.*: //g')
+
+  thissong=$(grep -i "\* - $TITLE" $DONTLIKE)
+  thisartist=$(grep -i "$ARTIST - \*" $DONTLIKE)
+  thissongbythisartist=$(grep -i "$ARTIST - $TITLE" $DONTLIKE)
+  # Most likely this three greps could be melted into one, but I did not
+  # want to make it look too complicated.
+
+  dontlike="${thissong}${thisartist}${thissongbythisartist}"
+  
+   if [ "xxx${dontlike}" = "xxx" ]
+   then
+     echo "like"
+   else	
+     echo "dontlike"
+   fi
+  
+}
+
+
 fadeout()
 {
   
@@ -511,34 +534,37 @@ fadeout()
   DEST="$2"
    
   TIMESTAMP="$(date -R -r "$FILE")"
-  BASENAME="${FILE##*/}"
-
-  echo "Trimming ${BASENAME}..." 
- 
-  #echo
-  # echo $BASENAME
-  #echo $TMPFILE
-
-  sox -V1 "$FILE" -t wav "$TMPDIR"/"$BASENAME".wav silence 1 0.50 0.1% 1 0.5 0.1% : newfile : restart
- 
-  #choose biggest file of sox output as we think this will be the wanted main part
-  Ftmp=$(ls -1S "$TMPDIR"/"$BASENAME"* | head -1)
-  #echo "Ftmp: $Ftmp"
+  SONG="${FILE##*/}"
   
-  LENGTH=$(sox --i -D "$Ftmp")
+  echo "Trimming ${SONG}..." 
+
+  LENGTH=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$FILE")
+  ARTIST=$(ffprobe -v error -show_entries format_tags=artist -of default=noprint_wrappers=1:nokey=1 "$FILE") 
+  TITLE=$(ffprobe -v error -show_entries format_tags=title -of default=noprint_wrappers=1:nokey=1 "$FILE")
+
   LENGTH=${LENGTH%%.*}
   TRIMLENGTH=$((LENGTH - TRIM_BEGIN - TRIM_END))
   FADE_OUT_START=$((TRIMLENGTH - FADE_OUT))
 
-  sox -V1 "$Ftmp" -t wav - trim $TRIM_BEGIN $TRIMLENGTH \
-	  silence -l 1 0.5 0.1% -1 0.5 0.1% \
-	  fade t $FADE_IN $FADE_OUT_START $FADE_OUT \
-      | lame --quiet --add-id3v2 --ta "$ARTIST" --tt "$TITLE" \
-	--tg "$GENRE" --tc "$COMMENT" - "$DEST"
+  ffmpeg -i "$FILE"  -f wav - |  ffmpeg -i - \
+    -ss $TRIM_BEGIN -t $TRIMLENGTH \
+    -af "afade=t=in:ss=0:d=$FADE_IN,afade=t=out:st=$FADE_OUT_START:d=$FADE_OUT" \
+    "$DEST"
+  #
+  # Question:	Why am I piping ffmpeg into ffmpeg? 
+  #
+  # Answer: 	The first ffmpeg converts any input format into 
+  #		wave format, piping it into the second instance, 
+  #		which does the cutting and fading and finally 
+  #		converts it to mp3.
+  #		If ffmpeg is to cut and fade a media file, it needs 
+  #		to know the lenght of the file before it can do its
+  #		work. This is a bit of a problem with certain formats
+  #		like aac. By using two instances of fadecut these 
+  #		problems can be bypassed.
+  #		
 
   touch -d "$TIMESTAMP" "$DEST"
-
-  rm -f "$Ftmp"* 
 
 }
 
@@ -560,18 +586,10 @@ then
   exit
 fi
 
-if [ ! -x $(which sox)  ]
+if [ ! -x $(which ffmpeg) ]
 then
   echo
-  echo Error: sox not found or not executable! 
-  echo 
-  exit
-fi
-
-if [ ! -x $(which id3v2) ]
-then
-  echo
-  echo Error: id3v2 not found or not executable! 
+  echo Error: ffmpeg not found or not executable! 
   echo 
   exit
 fi
@@ -605,31 +623,74 @@ do
 			shift
 			;;
 		"-M")
+			if [ "xxx$2" = "xxx" ]
+			then 
+			    echo 
+			    echo Option -M needs an argument!
+			    help
+			    exit
+			fi
 			SRLIMIT="-M $2"
 			shift
 			shift
 			;;
 		"-G")
+			if [ "xxx$2" = "xxx" ]
+			then 
+			    echo 
+			    echo Option -G needs an argument!
+			    help
+			    exit
+			fi
 			SRLIMIT="-M $(( $2 * 1000))"
 			shift
 			shift
 			;;
 		"-s")
+			if [ "xxx$2" = "xxx" ]
+			then 
+			    echo 
+			    echo Option -s needs an argument!
+			    help
+			    exit
+			fi
 			SRLIMIT="-l $2"
 			shift
 			shift
 			;;
 		"-m")
+			if [ "xxx$2" = "xxx" ]
+			then 
+			    echo 
+			    echo Option -m needs an argument!
+			    help
+			    exit
+			fi
 			SRLIMIT="-l $(( $2 * 60))"
 			shift
 			shift
 			;;
 		"-h")
+			if [ "xxx$2" = "xxx" ]
+			then 
+			    echo 
+			    echo Option -h needs an argument!
+			    help
+			    exit
+			fi
 			SRLIMIT="-l $(( $2 * 60 * 60))"
+			exit
 			shift
 			shift
 			;;
 		"-d")
+			if [ "xxx$2" = "xxx" ]
+			then 
+			    echo 
+			    echo Option -d needs an argument!
+			    help
+			    exit
+			fi
 			SRLIMIT="-l $(( $2 * 60 * 60 * 24))"
 			shift
 			shift
@@ -717,12 +778,10 @@ fi
 WORKINGDIR="$RECBASEDIR/.${COMMENT} - ${DATE}"
 TARGET="$RECBASEDIR/${COMMENT} - ${DATE}"
 
-#echo $WORKINGDIR
-#echo $TARGET
-#exit 
-
 RECORDINGS=$(find "$RECBASEDIR" -type d -name "[!.]* - 20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]" | wc -l)
-
+# I know that this find command is limited to the years 2001 - 2099, 
+# but I don't assume anyone will use this script after 2099 any more. ;)
+ 
 if [ "xxx$USETHEFORCE" = "xxx" ]
 then
   if [ "xxx$MAXRECORDINGS" != "xxx" ]
@@ -765,7 +824,6 @@ if [ "xxx$FINALACTION" = "xxx" ];
 then
 	echo
         echo After ripping and trimming, no further action will be taken!
-	echo
 fi
 
 echo
@@ -776,70 +834,61 @@ mkdir -p "$WORKINGDIR"/{new,error,incomplete,orig}
 
 streamripper $STREAM_URL $STREAMRIPPER_OPTS $SRLIMIT -d "$WORKINGDIR"
 
+SREX=$?
+ 
+if [ ! $SREX -eq 0 ]
+then	
+  echo
+  echo Streamripper exited with error code $SREX!
+  echo
+  exit
+fi
+
+
 mkdir -p "$TARGET"
+
 IFS=$TMPIFS
-number=$(ls -1 "$WORKINGDIR"/*.mp3 | wc -l)
-digits=${#number}
+
+NUMBER=$(ls -1 "$WORKINGDIR"/*.* | wc -l)
+digits=${#NUMBER}
 ALLSONGS=""
 
-if [ -d "$WORKINGDIR" ]
+if [ ! -d "$WORKINGDIR" ]
 then
-  # sort by reverse date (oldest file first):
-  ALLSONGS=$(ls -1rt "$WORKINGDIR/"*.mp3)
-  if [ "xxx$ALLSONGS" != "xxx" ]
-  then	
-    i=1
-    for song in $ALLSONGS
-    do
-      
-      ARTIST=$(id3v2 -l "$song" | sed -e '/TPE1/!d' -e 's/^.*: //g')
-      TITLE=$(id3v2 -l "$song" | sed -e '/TIT2/!d' -e 's/^.*: //g')
+  echo Something strange happened: $WORKINGDIR has vanished! Exiting...
+  exit
+fi
 
-      #
-      # A leading number is added to the file name, so that the songs 
-      # can always be played in the same order they where broadcasted,
-      # regardless which file system is used or if the timestamps get 
-      # lost while moving or copying the files later.
-      # 
-      number=$(printf "%0${digits}d\n" $i)
-      newname="$number - ${song##*/}"
-      DEST="$TARGET"/"${newname}"
+# sort by reverse date (oldest file first):
+ALLSONGS=$(ls -1rt "$WORKINGDIR/"*.*)
+if [ "xxx$ALLSONGS" = "xxx" ]
+then	
+  echo There are no songs to work on! Exiting...
+  exit
+fi
 
-      if [ -e $DONTLIKE ]
+i=1
+for SONG in $ALLSONGS
+do
+      NUMBER=$(printf "%0${digits}d\n" $i)
+      NEWNAME="$NUMBER - ${SONG##*/}"
+      DEST="$TARGET"/"${NEWNAME%%.*}.mp3"
+
+      if [ $(checkdontlike "$SONG") = "like" ]
       then
-	  dontlikethissong=$(grep -i "\* - $TITLE" $DONTLIKE)
-	  dontlikethisartist=$(grep -i "$ARTIST - \*" $DONTLIKE)
-	  dontlikethissongbythisartist=$(grep -i "$ARTIST - $TITLE" $DONTLIKE)
-	    
-	  if [ "xxx${dontlikethissong}" != "xxx" ] ; then
-	    echo "\"${song##*/}\": I don't like this song at all. It's listed in \"$DONTLIKE\" -> deleting..."
-	    rm -f "$song"
-	    continue
-	  fi
-	    
-	  if  [ "xxx${dontlikethisartist}" != "xxx" ] ; then
-	    echo "\"${song##*/}\": I don't like this artist at all. He/she is listed in \"$DONTLIKE\" -> deleting..."
-	    rm -f "$song"
-	    continue
-	  fi
+	  echo  ${SONG##*/}: adding fade out...
+	  fadeout "$SONG" "$DEST"
+	  i=$(( i + 1))
+      else
+	  echo ${SONG##*/}: I do not like this song... deleting!
+	  rm -f "$SONG"
+      fi
 
-	  if  [ "xxx${dontlikethissongbythisartist}" != "xxx" ] ; then
-	    echo "\"${song##*/}\": I don't like this song by this artist. It's listed in \"$DONTLIKE\" -> deleting..."
-	    rm -f "$song"
-	    continue
-	  fi
-      fi # [ -e $DONTLIKE ]
+done # for SONG in $ALLSONGS
 
-      fadeout "$song" "$DEST" "$TIMESTAMP"
-      i=$(( i + 1))
-
-    done
-
-  fi #[ "xxx$ALLSONGS" != "xxx" ]
-
-fi # [ -d "$WORKINGDIR" ]
 
 case "$FINALACTION" in
+    "")			echo No final action defined... ;;
     "burn2cdrw") 	cdrw "$TARGET" "$VOLUME" ;;
     "copy2usb")		usb "$TARGET";;
     *)			echo Undefined action! ;;
@@ -849,7 +898,7 @@ esac
 if [ "$KEEPORIG" = "true" ]
 then
   mkdir -p "$TARGET"/orig
-  mv "$WORKINGDIR"/*.mp3 "$TARGET"/orig/
+  mv "$WORKINGDIR"/*.* "$TARGET"/orig/
   echo
   echo You will find the original downloads in "$TARGET"/orig!
   echo
