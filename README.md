@@ -5,8 +5,9 @@ A small wrapper for streamripper.
 
 This script uses streamripper to record songs transmitted by 
 internet radio stations, and then it uses ffmpeg to add a little
-fading and to convert the songs to mp3. It can also burn the 
-songs to a CDRW or copy them onto a USB drive.
+fade out to ommit voice overs and commercials, and to convert 
+the songs to mp3. It can also burn the songs to a CDRW or copy 
+them onto a USB drive.
 
 It can also be started by udev to burn or copy a previously made 
 recording without further interacting: just plug in a USB drive 
