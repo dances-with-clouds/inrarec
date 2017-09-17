@@ -1,0 +1,4 @@
+Changes:
+
+Version 2017-09-17: 
+Switched to ffmpeg for conversion, cutting and fadeing. 
