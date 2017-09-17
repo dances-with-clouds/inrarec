@@ -13,15 +13,16 @@ It can also be started by udev to burn or copy a previously made
 recording without further interacting: just plug in a USB drive 
 or insert a CDRW, and the process starts.
 
-Wait a minute... this sounds like something that streamripper and 
-fadecut can do!
+Wait a minute... this sounds like something that fadecut can do!
 
 That is correct. So why did I do it?
 
-Streamripper and fadecut are great programms, no question about it! 
+Fadecut is a great programm, no question about it! 
 
-But soon after I started to use them, I realized they did not quite 
-fit my personal needs. So I started to write a small script that would
+But soon after I started to use it, I realized it did not quite 
+fit my personal needs. E.g., there's no way of telling fadecut to stop
+streamripper after a certain time. 
+So I started to write a small script that would
 do the every day work for me. It started with just 5 lines of code 
 for a cron job that downloaded a few hours of songs from a radio station 
 and burned them onto a CD, so I could enjoy the music the next day while
