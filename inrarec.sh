@@ -845,7 +845,7 @@ echo
 renice -n 19 $$
 mkdir -p "$WORKINGDIR"/{new,error,incomplete,orig}
 
-# streamripper $STREAM_URL $STREAMRIPPER_OPTS $SRLIMIT -d "$WORKINGDIR"
+streamripper $STREAM_URL $STREAMRIPPER_OPTS $SRLIMIT -d "$WORKINGDIR"
 
 SREX=$?
  
@@ -915,7 +915,7 @@ then
   mkdir -p "$TARGET"/orig
   mv "$WORKINGDIR"/*.* "$TARGET"/orig/
   echo
-  echo You will find the original downloads in "$TARGET"/orig!
+  echo You will find the original downloads in \"$TARGET/orig\"!
   echo
 fi
 
@@ -925,13 +925,10 @@ rm -rf "$WORKINGDIR"
 
 IFS=$OLDIFS
 
-FINISH=$(date "+%F %X")
-SECONDS=$(($(date "+%s" --date="-d $FINISH") - $(date "+%s" --date="-d $START")))
-TDIFF=$(($(date "+%s" --date="-d $FINISH") - $(date "+%s" --date="-d $START")))
-
 
 if [ "xxx$EMAIL" != "xxx" ]
 then
+
     if [ ! -x $(which mail) ]
     then
       echo
@@ -945,10 +942,16 @@ then
       echo ... on \"$TARGET\" | mail -s "Thank you for the music..." $EMAIL
       echo
     fi
+
 else
+
+  FINISH=$(date "+%F %X")
+  SECONDS=$(($(date "+%s" --date="-d $FINISH") - $(date "+%s" --date="-d $START")))
+  TDIFF=$(($(date "+%s" --date="-d $FINISH") - $(date "+%s" --date="-d $START")))
   echo
   echo $FINISH: Done! The job took me $(printf '%02dh:%02dm:%02ds\n' $(($TDIFF/3600)) $(($TDIFF%3600/60)) $(($TDIFF%60))). 
   echo Check for new music in \"$TARGET\" and enjoy!
   echo
+
 fi
 
