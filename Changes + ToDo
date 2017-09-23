@@ -1,4 +1,11 @@
 Changes:
 
-Version 2017-09-17: 
-Switched to ffmpeg for conversion, cutting and fadeing. 
+Version 2017-09-17: Switched to ffmpeg for conversion, cutting and fadeing. 
+
+version 2017-09-23: It's "tee" time! ;)
+
+Now, if the command line otion "-usb" is used, the copying to the USB device is done on
+the fly by using "tee", which splits the output from ffmpeg into two identical files. 
+This saves a lot of time!
+
+
