@@ -6,7 +6,7 @@
 # 
 # A small wrapper for streamripper.
 # 
-# Version/Date: 2017-09-17
+# Version/Date: 2017-09-23
 #
 # This script uses streamripper to record internet streams transmitted by
 # internet radio stations, and then it uses ffmpeg to add a little fading 
