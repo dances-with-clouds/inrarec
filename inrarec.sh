@@ -133,14 +133,9 @@ COMMENT="Radio Paradise"
 FADE_IN=1
 FADE_OUT=5
 TRIM_BEGIN=1
-TRIM_END=1
-ENCODING=mp3 
+TRIM_END=4
 # ---------------------- cut here ---------------------
 
-#
-# Default profile. 
-# May be given as command line argument "-p <profilename>" as well.
-PROFILE="radioparadise"
 
 #
 # streamripper:
@@ -322,39 +317,8 @@ exit
 
 rsync_all()
 {
-
-  if [ ! -x $(which rsync) ]
-  then
-
-    echo
-    echo Error: rsync not found or not executable! 
-    echo 
-    echo Downloading songs is still possible, but if you want to copy them
-    echo to some other place \(e.g. a USB drive\), rsync is required!
-    echo
-
-  else
-   
-    for vz in "$RECBASEDIR"/[a-zA-Z0-9]*;
-    do
-  		# do not sync while working dir exists!
-                 if [ ! -d "$RECBASEDIR"/".${vz##*/}" ]
-                 then
-			 usb "$vz"
-                 fi
-    done
-
-  fi
-}
-
-
-usb()
-{	
-
   IFS=$TMPIFS
 
-  src="$1"
-
   if [ ! -x $(which rsync) ]
   then
 
@@ -364,20 +328,11 @@ usb()
     echo Downloading songs is still possible, but if you want to copy them
     echo to some other place \(e.g. a USB drive\), rsync is required!
     echo
-
+  
   else
-
-    mount "$USBMUSIC"
-
-    if ! mountpoint -q "$USBMUSIC";
-    then
-        	date | mail -s 'Target can not be mounted!' $EMAIL
-	        exit
-    fi
 
     free=$(df "$USBMUSIC" --output=avail | tail -1)
     needed=$(du -s "$src" | cut -f1)
-
     ## turn contents into numerical values:
     free=$(( $free + 1 ))
     needed=$(( $needed + 1 ))
@@ -385,18 +340,27 @@ usb()
     if [ $needed -gt $free ];
     then
 	echo
-	echo Not enough space left on device! | mail -s "No music today" $EMAIL
+	echo Not enough space left on USB device! 
 	echo
     else
+      for vz in "$RECBASEDIR"/[a-zA-Z0-9]*;
+      do
+	# do not sync while working dir exists!
+	if [ ! -d "$RECBASEDIR"/".${vz##*/}" ]
+	then
+	  mount $USBMUSIC
+	  nice -n 19 rsync -a --ignore-existing --exclude ".*/" --exclude ".*" "$vz" "$USBMUSIC"
+	  sync
+	  umount $USBMUSIC
+	fi
+      done # for vz in "$RECBASEDIR"/[a-zA-Z0-9]*
 
-      nice -n 19 rsync -a --ignore-existing --exclude ".*/" --exclude ".*" "$src" "$USBMUSIC"
-      sync
-      umount "$USBMUSIC"
+    fi # [ $needed -gt $free ];
 
-    fi
-    IFS=$OLDIFS
-  
-  fi
+  fi # [ ! -x $(which rsync) ]
+
+  IFS=$OLDIFS
+
 }
 
 cdrw()
@@ -404,6 +368,8 @@ cdrw()
 
   src="$1"
   volume="$2"
+
+echo Kuckuk!
 
   if [ ! -x $CDRECORD ]
   then
@@ -427,46 +393,47 @@ cdrw()
  
   else
 
-	IFS=$TMPIFS
+    IFS=$TMPIFS	
 
-	if [ "xxx$src" = "xxx" ]
-	then
-		echo
-		echo I\'ll stay cool because there\'s nothing to burn...
-		echo
-		return
-	fi
+    if [ "xxx$src" = "xxx" ]	
+    then	
+	    echo	
+	    echo I\'ll stay cool because there\'s nothing to burn...	
+	    echo	
+	    return	
+    fi	
 
-	if $CDRECORD -minfo | grep -E 'Mounted media type: +CD-RW';
-	then
-		echo
-		echo Blanking the disc...
-		echo
+    if $CDRECORD -minfo | grep -E 'Mounted media type: +CD-RW';	
+    then	
+      echo	
+      echo Blanking the disc...	
+      echo	
 
-		$CDRECORD dev=$DEVICE -force blank=fast -gracetime=0
-		
-		echo
-		echo Burning contents of \"$src\"...
-		echo
+      $CDRECORD dev=$DEVICE -force blank=fast -gracetime=0	
+      
+      echo	
+      echo Burning contents of \"$src\"...	
+      echo	
 
-		graft=${src##*/}
-		ts=$($MKISOFS -quiet -print-size "$src"/)s
-		$MKISOFS -quiet -V "$volume" -J -R -graft-points "$graft"="$src" \
-		| $CDRECORD dev=$DEVICE -sao driveropts=burnfree \
-			-gracetime=0 -data -eject fs=16m -tsize=$ts -
+      graft=${src##*/}	
+      ts=$($MKISOFS -quiet -print-size "$src"/)s	
+      $MKISOFS -quiet -V "$volume" -J -R -graft-points "$graft"="$src" \
+      | $CDRECORD dev=$DEVICE -sao driveropts=burnfree \
+      -gracetime=0 -data -eject fs=16m -tsize=$ts -
 
-		echo
-		echo Finished!
-		echo
-		
-		[ $? -eq 0 ] && echo "$src" >> $BURNED
+      echo	
+      echo Finished!	
+      echo	
+      
+      [ $? -eq 0 ] && echo "$src" >> $BURNED	
 
-	else
-		echo
-		echo No CD-RW available!
-		echo
-	fi
-	IFS=$OLDIFS
+    else	
+	    echo	
+	    echo No CD-RW available!	
+	    echo	
+    fi # $CDRECORD -minfo | grep -E 'Mounted media type: +CD-RW';	
+
+    IFS=$OLDIFS	
   fi
 }
 
@@ -505,11 +472,6 @@ findlatest()
 checkdontlike()
 {
     
-  #SONG="$1" 
-  # 
-  #ARTIST=$(ffprobe -v error -show_entries format_tags=artist -of default=noprint_wrappers=1:nokey=1 "$SONG") 
-  #TITLE=$(ffprobe -v error -show_entries format_tags=title -of default=noprint_wrappers=1:nokey=1 "$SONG")
-
   local ARTIST="$1"
   local TITLE="$2"
 
@@ -540,21 +502,22 @@ fadeout()
   
   local FILE="$1"
   local DEST="$2"
-   
-  TIMESTAMP="$(date -R -r "$FILE")"
+  local USBDEST="$3"
+
   SONG="${FILE##*/}"
-  
   LENGTH=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$FILE")
   LENGTH=${LENGTH%%.*}
   TRIMLENGTH=$((LENGTH - TRIM_BEGIN - TRIM_END))
   FADE_OUT_START=$((TRIMLENGTH - FADE_OUT))
-
-  ffmpeg -hide_banner -nostats -loglevel 0 -i "$FILE"  -f wav - \
-    |  ffmpeg -hide_banner -nostats -loglevel 0 -i - \
-	-ss $TRIM_BEGIN -t $TRIMLENGTH \
-	-af "afade=t=in:ss=0:d=$FADE_IN,afade=t=out:st=$FADE_OUT_START:d=$FADE_OUT" \
-	"$DEST"
-
+  
+  ffmpeg -hide_banner -loglevel 0 -nostats -i "$FILE" -f wav - \
+    | ffmpeg -hide_banner -loglevel 0 -nostats -i - \
+      -ss $TRIM_BEGIN \
+      -t $TRIMLENGTH\
+      -af afade=t=in:ss=0:d=$FADE_IN,afade=t=out:st=$FADE_OUT_START:d=$FADE_OUT \
+      -f mp3 - \
+    | tee "$DEST" "$USBDEST" >/dev/null
+  
   #
   # Question:	Why am I piping ffmpeg into ffmpeg? 
   #
@@ -568,8 +531,6 @@ fadeout()
   #		like aac. By using two instances of fadecut these 
   #		problems can be bypassed.
   #		
-
-  touch -d "$TIMESTAMP" "$DEST"
 
 }
 
@@ -600,14 +561,13 @@ then
 fi
 
 
-TMPDIR=/tmp
-
+####
 # Date format, used as part of directory naming - DO NOT CHANGE!!!
 DATE=$(date "+%F")
 START=$(date "+%F %X")
-
-FINALACTION=""
-TIMEOUT=""
+BURN2CD="false"
+COPY2USB="false"
+USETHEFORCE="false"
 
 while [ $# -gt 0 ];
 do
@@ -623,7 +583,17 @@ do
 			shift
 			;;
  		"-p")
-			PROFILE=$2
+			PROFILE="$2"
+			if [ ! -e "$PROFILEDIR"/"$PROFILE" ]
+			then
+			  echo
+			  echo Profile \"$PROFILE\" does not exist!
+			  echo
+			  exit
+			else
+			  . "$PROFILEDIR"/"$PROFILE"
+			fi
+
 			shift
 			shift
 			;;
@@ -700,7 +670,7 @@ do
 			shift
 			;;
            	"-cd")
-                	FINALACTION="burn2cdrw"
+			BURN2CD="true"
 			echo
 			echo Songs will be burned to CD-RW after download and trimming.
 			echo Make sure, there is a re-writable disk inserted!
@@ -708,10 +678,10 @@ do
                     	shift
                     	;;
             	"-usb")
-                    	FINALACTION="copy2usb"
+			COPY2USB="true"
 			echo
-			echo Songs will be copied to USB drive after download and trimming.
-			echo Make sure, the drive is plugged in!
+			echo Songs will be copied to USB after download and trimming.
+			echo Make sure, the device is plugged in!
 			echo
 			shift
                     	;;
@@ -745,30 +715,20 @@ do
 			exit
 			;;
 		  "-f")
-			  # don't check for another running instance
-			  USETHEFORCE="true"
-			  shift
-			  ;;
+			# don't check for another running instance
+			USETHEFORCE="true"
+			shift
+			;;
 		  "-KWD")
 			KEEPWORKINGDIR="true"
 			shift
 			;;
-		*)
+		  *)
                     help
                     exit
                     ;;
   esac
 done
-
-
-
-if [ ! -e $PROFILEDIR/$PROFILE ]
-then
-  echo
-  echo Profile $PROFILE does not exist!
-  echo
-  exit
-fi
 
 if [ ! -d "$RECBASEDIR" ]
 then
@@ -781,52 +741,66 @@ then
   exit
 fi
 
-. $PROFILEDIR/$PROFILE
-
 WORKINGDIR="$RECBASEDIR/.${COMMENT} - ${DATE}"
 TARGET="$RECBASEDIR/${COMMENT} - ${DATE}"
 
-RECORDINGS=$(find "$RECBASEDIR" -type d -name "[!.]* - 20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]" | wc -l)
-# I know that this find command is limited to the years 2001 - 2099, 
-# but I don't assume anyone will use this script after 2099 any more. ;)
- 
-if [ "xxx$USETHEFORCE" = "xxx" ]
+if [ "$COPY2USB" = "true" ]
 then
-  if [ "xxx$MAXRECORDINGS" != "xxx" ]
+
+  mount "$USBMUSIC"
+
+  if ! mountpoint -q "$USBMUSIC";
   then
+      echo
+      echo USB-Target can not be mounted!
+      echo Songs will not be copied to USB!
+      echo
+      COPY2USB="false"
+  
+  else
 
-      # convert into numerical values:
-      RECORDINGS=$(( $RECORDINGS + 1 ))
-      MAXRECORDINGS=$(( $MAXRECORDINGS + 1 )) 
+    USBTARGET="$USBMUSIC/${COMMENT} - ${DATE}"
+    mkdir -p "$USBMUSIC"/"${COMMENT} - ${DATE}"
 
-      # now both variables are integer values, 
-      # and thus can be compared like this:
-
-      if [ $RECORDINGS -ge $MAXRECORDINGS ]
-      then
-	  echo
-	  echo Too many recordings found: 
-	  echo check $RECBASEDIR and delete unnecessary recordings!
-	  echo 
-	  echo Maybe you should use the force, Luke...
-	  echo
-	  exit
-      fi
   fi
-fi
 
-if [ "xxx$USETHEFORCE" = "xxx" ]
+fi # [ "$COPY2USB" = "true" ]
+
+if [ "$USETHEFORCE" = "false" ]
 then
+
+  RECORDINGS=$(find "$RECBASEDIR" -type d -name "[!.]* - 20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]" | wc -l)
+  # I know that this find command is limited to the years 2001 - 2099, 
+  # but I don't assume anyone will use this script after 2099 any more. ;)
+
   if [ -d "$WORKINGDIR" ]
   then
-	  echo
-	  echo Directory \"$WORKINGDIR\" already exists. Is there a recording running?
-	  echo 
-	  echo Maybe you should use the force, Luke...
-	  echo
-	  exit
-  fi
+    echo
+    echo Directory \"$WORKINGDIR\" already exists. Is there a recording running?
+    echo 
+    echo Maybe you should use the force, Luke...
+    echo
+    exit
+  fi # [ -d "$WORKINGDIR" ]
+
+else
+  RECORDINGS=0
 fi
+
+# convert into numerical values:
+RECORDINGS=$(( $RECORDINGS + 0 ))
+MAXRECORDINGS=$(( $MAXRECORDINGS + 0 )) 
+
+if [ $RECORDINGS -ge $MAXRECORDINGS ]
+then
+  echo
+  echo Too many recordings found: 
+  echo check $RECBASEDIR and delete unnecessary recordings!
+  echo 
+  echo Maybe you should use the force, Luke...
+  echo
+  exit
+fi # [ $RECORDINGS -ge $MAXRECORDINGS ]
 
 echo
 echo $START: Starting recording in \"${WORKINGDIR}\"...
@@ -848,6 +822,9 @@ then
   exit
 fi
 
+echo
+echo Download finished!
+echo 
 
 mkdir -p "$TARGET"
 
@@ -879,16 +856,27 @@ do
       SONGNAME="${FILE##*/}" # stripping path
       SONGNAME="${SONGNAME%.*}" # stripping extension
       DEST="$TARGET/$NUMBER - $SONGNAME".mp3
+ 
+      if [ "$COPY2USB" = "true" ]
+      then
+	  USBDEST="$USBTARGET/$NUMBER - $SONGNAME".mp3
+      else
+	  # tee still needs a second file to create:
+	  USBDEST="/dev/null"
+      fi
 
+      TIMESTAMP="$(date -R -r "$FILE")"
       ARTIST=$(ffprobe -v error -show_entries format_tags=artist -of default=noprint_wrappers=1:nokey=1 "$FILE") 
       TITLE=$(ffprobe -v error -show_entries format_tags=title -of default=noprint_wrappers=1:nokey=1 "$FILE")
-
       TASTE=$(checkdontlike "$ARTIST" "$TITLE")
 
       if [ "$TASTE" = "I like this song!" ]
       then
 	  echo $SONGNAME -\> fading out...
-	  fadeout "$FILE" "$DEST"
+	  fadeout "$FILE" "$DEST" "$USBDEST"
+	  touch -c -d "$TIMESTAMP" "$DEST" 
+	  # you can't do a "touch -d" to /dev/null, so check first:
+	  test -f "$USBDEST" && touch -c -d "$TIMESTAMP" "$USBDEST"
 	  i=$(( i + 1))
       else
 	  echo $SONGNAME: -\> deleting, because $TASTE!
@@ -897,14 +885,16 @@ do
 
 done # for SONG in $ALLSONGS
 
+stty sane # needed after piping ffmpeg into ffmpeg. WHY???
 
-case "$FINALACTION" in
-    "")			echo; echo Finished! ;;
-    "burn2cdrw") 	cdrw "$TARGET" "$VOLUME" ;;
-    "copy2usb")		usb "$TARGET";;
-    *)			echo Undefined action! ;;
-esac
 
+if [ "$BURN2CD" = "true" ]
+then
+  echo 
+  echo Burning \"$TARGET\" to CDRW...
+  echo
+  cdrw "$TARGET" "$VOLUME"
+fi
 
 if [ "$KEEPORIG" = "true" ]
 then
@@ -912,6 +902,14 @@ then
   mv "$WORKINGDIR"/*.* "$TARGET"/orig/
   echo
   echo You will find the original downloads in \"$TARGET/orig/\"!
+  echo
+fi
+
+if [ "$COPY2USB" = "true" ]
+then
+  umount $USBMUSIC
+  echo
+  echo All songs have been copied to $USBTARGET as well. Enjoy!
   echo
 fi
 
@@ -928,7 +926,6 @@ fi
 ########################################################################
 
 IFS=$OLDIFS
-
 
 if [ "xxx$EMAIL" != "xxx" ]
 then
