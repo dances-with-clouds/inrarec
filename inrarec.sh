@@ -6,7 +6,7 @@
 # 
 # A small wrapper for streamripper.
 # 
-# Version/Date: 2017-09-23
+# Version/Date: 2017-09-24
 #
 # This script uses streamripper to record internet streams transmitted by
 # internet radio stations, and then it uses ffmpeg to add a little fading 
@@ -81,6 +81,8 @@
 # Where to send e-mails when a job is finished?
 # If empty, no e-mail will be send!
 #
+# For this to work, you need a functioning mail system!
+#
 EMAIL=""
 
 #
@@ -91,6 +93,7 @@ RCDIR="$HOME/.inrarec/"
 #
 #
 # Which file contains names and titles of unwanted artists and songs?
+#
 DONTLIKE="$RCDIR/dontlike"
 
 #
@@ -116,6 +119,7 @@ DONTLIKE="$RCDIR/dontlike"
 
 # 
 # profile dir
+#
 PROFILEDIR="$RCDIR/profiles"
 
 # 
@@ -135,15 +139,26 @@ FADE_OUT=5
 TRIM_BEGIN=1
 TRIM_END=4
 # ---------------------- cut here ---------------------
-
+#
+# Note: the above settings are taken as defaults, if you 
+# call the program without "-p" option.
 
 #
 # streamripper:
-# Options for streamripper, see "man streamripper":
+# Options for streamripper, see "man streamripper". 
+# Can be set in each profile, to use different options per station.
+#
 STREAMRIPPER_OPTS="-o always -T -k 1 -s --with-id3v1 --codeset-filesys=UTF-8 --codeset-id3=UTF-8 --codeset-metadata=UTF-8"
+#
+# Note: I highly recomment to use UTF8 as the default locale on your system!
+# If you're not stuck in the previous century, there's no need to use any 
+# other locale any more!
+
 
 #
-# Default limit for downloading, can be set via command line option.
+# Default limit for downloading, can be set via command line option. 
+# Can also be set in each profile, to set a differnt limit per station.
+#
 # Possible options for limit:
 #
 # "-s 60"		60 seconds
@@ -155,27 +170,39 @@ STREAMRIPPER_OPTS="-o always -T -k 1 -s --with-id3v1 --codeset-filesys=UTF-8 --c
 #
 SRLIMIT="-M 690"
 
-# Do you want to keep streamripper's orinal downloads? 
-# (Unedited by ffmpeg.)
+# Do you want to keep streamripper's orinal downloads? (= Untouched by ffmpeg)
 # Can be overwritten/set via command line option "-k".
+# Can be set in each profile, to use different settings per station.
+#
 KEEPORIG="false"
 
+# Do you want to keep the complete working director, including all 
+# sub-directories like "incomplete"?
 #
-# Base dir to be used for recording, can be set via "-d <director>":
+# Can be set via command line option "-KWD", and can also be set in 
+# each profile, to use different settings per station.
+# 
+KEEPWORKINGDIR="false"
 #
-RECBASEDIR=/mnt/aufnahmen
-#RECBASEDIR=$HOME/tmp/aufnahmen
+
+#
+# Base dir to be used for recording, can be set via "-d <director>".
+# Can also be set in each profile, to use a different directory per station.
+#
+RECBASEDIR=$HOME/internetradio
 
 #
 # Which file contains recordings that already have been burned onto a CD?
 # This file simply prevents burning the same recording again and again,
-# when a "headless" machine is used. 
-#(Doesn't really need to be changed!)
+# when a "headless" machine is used. (Doesn't really need to be changed!)
+#
 BURNED="$RCDIR/burned"
 
 #
 # Maximum number of recordings? (To prevent flooding the hard disk!)
 # Value of zero means no limit!
+#
+# Note: this number counts for all recordings, not per station!
 #
 # MAXRECORDINGS=0
 MAXRECORDINGS=5
@@ -207,8 +234,11 @@ DEVICE=/dev/sr0
 # a CD, as soon as you insert a blank disk, or if you want to copy recorded
 # music to a USB drive. See below.
 #
+#
 # Mounting point for the USB drive, that the recording is to be copied to.
 # If empty, nothing will be copied!
+#
+# Can be set in each profile, to use different USB devices per station.
 #
 # USBMUSIC=""
 USBMUSIC=/mnt/music
@@ -226,6 +256,10 @@ USBMUSIC=/mnt/music
 # CD:
 #
 # Value (label) to give to a burned CDRW. (See below):
+# 
+# Note: this is a global setting for udev to work, 
+# it can't be set per station!
+# 
 VOLUME="One for the road"
 
 
@@ -251,9 +285,6 @@ VOLUME="One for the road"
 # 
 # This is espacially handy on a headless machine, and that's the reason 
 # why I included this feature in the first place! :)
-#
-# 
-KEEPWORKINGDIR="false"
 #
 #####################################################################
 ####
@@ -369,8 +400,6 @@ cdrw()
   src="$1"
   volume="$2"
 
-echo Kuckuk!
-
   if [ ! -x $CDRECORD ]
   then
 
@@ -439,34 +468,30 @@ echo Kuckuk!
 
 findlatest()
 {	
-	IFS=$TMPIFS
-	touch "$BURNED"
-	found=""
-	ALLRECORDINGS=$(find $RECBASEDIR -name '[!.]* - 20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]' -type d -print \
-	 		| sed -e 's/^.* \([[:graph:]]\{1,\}\)$/\1 &/' \
-			| sort \
-	      		| sed -e 's/^\([[:graph:]]\{1,\}\) //')
-	      
-	for recording in $ALLRECORDINGS;
-	do
-		  workingdir="$RECBASEDIR/.${recording##*/}"
-		  tocheck=$(grep "${recording##*/}" "$BURNED")
-		  if [ "xxx$tocheck" != "xxx" ]
-		  then
-		    # has been burned before
-		    continue
-		  elif [ -e "$recording" -a ! -e "$workingdir" ]
-		  then
-		     found="$recording"
-		     break
-		  fi
-	done
+  IFS=$TMPIFS
+  touch "$BURNED"
+  found=""
+  ALLRECORDINGS=$(find $RECBASEDIR -name '[!.]* - 20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]' -type d -print \
+		  | sed -e 's/^.* \([[:graph:]]\{1,\}\)$/\1 &/' \
+		  | sort \
+		  | sed -e 's/^\([[:graph:]]\{1,\}\) //')
+	
+  for recording in $ALLRECORDINGS;
+  do
+	    workingdir="$RECBASEDIR/.${recording##*/}"
+	    tocheck=$(grep "${recording##*/}" "$BURNED")
+	    if [ "xxx$tocheck" != "xxx" ]
+	    then
+	      # has been burned before
+	      continue
+	    elif [ -e "$recording" -a ! -e "$workingdir" ]
+	    then
+	      found="$recording"
+	      break
+	    fi
+  done
 
-	# echo
-	# echo "$found"
-	# echo
-
-	IFS=$OLDIFS
+  IFS=$OLDIFS
 }
 
 checkdontlike()
@@ -509,29 +534,48 @@ fadeout()
   LENGTH=${LENGTH%%.*}
   TRIMLENGTH=$((LENGTH - TRIM_BEGIN - TRIM_END))
   FADE_OUT_START=$((TRIMLENGTH - FADE_OUT))
-  
-  ffmpeg -hide_banner -loglevel 0 -nostats -i "$FILE" -f wav - \
-    | ffmpeg -hide_banner -loglevel 0 -nostats -i - \
-      -ss $TRIM_BEGIN \
-      -t $TRIMLENGTH\
-      -af afade=t=in:ss=0:d=$FADE_IN,afade=t=out:st=$FADE_OUT_START:d=$FADE_OUT \
-      -f mp3 - \
-    | tee "$DEST" "$USBDEST" >/dev/null
-  
-  #
-  # Question:	Why am I piping ffmpeg into ffmpeg? 
-  #
-  # Answer: 	The first ffmpeg converts any input format into 
-  #		wave format, piping it into the second instance, 
-  #		which does the cutting and fading and finally 
-  #		converts it to mp3.
-  #		If ffmpeg is to cut and fade a media file, it needs 
-  #		to know the lenght of the file before it can do its
-  #		work. This is a bit of a problem with certain formats
-  #		like aac. By using two instances of fadecut these 
-  #		problems can be bypassed.
-  #		
 
+  if [ "$TEATIME" = "true" ]
+  then
+    
+    ffmpeg -hide_banner -loglevel 0 -nostats -i "$FILE" -f wav - \
+      | ffmpeg -hide_banner -loglevel 0 -nostats -i - \
+	-ss $TRIM_BEGIN \
+	-t $TRIMLENGTH \
+	-af afade=t=in:ss=0:d=$FADE_IN,afade=t=out:st=$FADE_OUT_START:d=$FADE_OUT \
+	-f mp3 - \
+      | tee "$DEST" "$USBDEST" >/dev/null
+    
+      #
+      # Question: Why am I piping ffmpeg into ffmpeg? 
+      #
+      # Answer: The first ffmpeg converts any input format into 
+      #		wave format, piping it into the second instance, 
+      #		which does the cutting and fading and finally 
+      #		converts it to mp3.
+      #		If ffmpeg is to cut and fade a media file, it needs 
+      #		to know the lenght of the file before it can do its
+      #		work. This is a bit of a problem with certain formats
+      #		like aac. By using two instances of fadecut these 
+      #		problems can be bypassed.
+      #		
+  
+  else 
+
+    # without tee:
+
+    ffmpeg -hide_banner -loglevel 0 -nostats -i "$FILE" -f wav - \
+      | ffmpeg -hide_banner -loglevel 0 -nostats -i - \
+	-ss $TRIM_BEGIN \
+	-t $TRIMLENGTH \
+	-af afade=t=in:ss=0:d=$FADE_IN,afade=t=out:st=$FADE_OUT_START:d=$FADE_OUT \
+	-f mp3 "$DEST"
+
+    (cp "$DEST" "$USBDEST") & 
+    # trying to speed things up a bit by using a subshell
+
+  fi
+   
 }
 
 #####################################################################
@@ -560,6 +604,19 @@ then
   exit
 fi
 
+if [ -x $(which tee) ]
+then
+  TEATIME="true"
+else
+  TEATIME="false"
+  echo
+  echo Notice: tee not found or not executable! 
+  echo 
+  echo This program can still be used, but witout \"tee\"
+  echo it takes much longer to copy recorded songs to USB.
+  exit
+fi
+
 
 ####
 # Date format, used as part of directory naming - DO NOT CHANGE!!!
@@ -572,161 +629,161 @@ USETHEFORCE="false"
 while [ $# -gt 0 ];
 do
    case "$1" in
-		"-k")
-			KEEPORIG="true"
-			shift
-			;;
-		"-d")
-			RECBASEDIR="$2"
-			mkdir -p "$RECBASEDIR"
-			shift
-			shift
-			;;
- 		"-p")
-			PROFILE="$2"
-			if [ ! -e "$PROFILEDIR"/"$PROFILE" ]
-			then
-			  echo
-			  echo Profile \"$PROFILE\" does not exist!
-			  echo
-			  exit
-			else
-			  . "$PROFILEDIR"/"$PROFILE"
-			fi
+	"-k")
+		KEEPORIG="true"
+		shift
+		;;
+	"-d")
+		RECBASEDIR="$2"
+		mkdir -p "$RECBASEDIR"
+		shift
+		shift
+		;;
+ 	"-p")
+		PROFILE="$2"
+		if [ ! -e "$PROFILEDIR"/"$PROFILE" ]
+		then
+		  echo
+		  echo Profile \"$PROFILE\" does not exist!
+		  echo
+		  exit
+		else
+		  . "$PROFILEDIR"/"$PROFILE"
+		fi
 
-			shift
-			shift
-			;;
-		"-M")
-			if [ "xxx$2" = "xxx" ]
-			then 
-			    echo 
-			    echo Option -M needs an argument!
-			    help
-			    exit
-			fi
-			SRLIMIT="-M $2"
-			shift
-			shift
-			;;
-		"-G")
-			if [ "xxx$2" = "xxx" ]
-			then 
-			    echo 
-			    echo Option -G needs an argument!
-			    help
-			    exit
-			fi
-			SRLIMIT="-M $(( $2 * 1000))"
-			shift
-			shift
-			;;
-		"-s")
-			if [ "xxx$2" = "xxx" ]
-			then 
-			    echo 
-			    echo Option -s needs an argument!
-			    help
-			    exit
-			fi
-			SRLIMIT="-l $2"
-			shift
-			shift
-			;;
-		"-m")
-			if [ "xxx$2" = "xxx" ]
-			then 
-			    echo 
-			    echo Option -m needs an argument!
-			    help
-			    exit
-			fi
-			SRLIMIT="-l $(( $2 * 60))"
-			shift
-			shift
-			;;
-		"-h")
-			if [ "xxx$2" = "xxx" ]
-			then 
-			    echo 
-			    echo Option -h needs an argument!
-			    help
-			    exit
-			fi
-			SRLIMIT="-l $(( $2 * 60 * 60))"
-			shift
-			shift
-			;;
-		"-d")
-			if [ "xxx$2" = "xxx" ]
-			then 
-			    echo 
-			    echo Option -d needs an argument!
-			    help
-			    exit
-			fi
-			SRLIMIT="-l $(( $2 * 60 * 60 * 24))"
-			shift
-			shift
-			;;
-           	"-cd")
-			BURN2CD="true"
-			echo
-			echo Songs will be burned to CD-RW after download and trimming.
-			echo Make sure, there is a re-writable disk inserted!
-			echo
-                    	shift
-                    	;;
-            	"-usb")
-			COPY2USB="true"
-			echo
-			echo Songs will be copied to USB after download and trimming.
-			echo Make sure, the device is plugged in!
-			echo
-			shift
-                    	;;
-		"-udev")
-			# script has been started by udev
-			#
-			# The reason for using the "at" command here is udev
-			# doesn't run programms that last too long. Burning
-			# a CD or using rsync definately is too long!
-			if [ "$2" = "cd" ]
-			then
-			     echo "$0 -burnlatest" | /usr/bin/at now + 1 minute	
-			     exit			     
-			elif [ "$2" = "usb" ]
-			then
-			     echo "$0 -all2usb" | /usr/bin/at now + 1 minute	
-			     exit			     
-			else
-			    echo
-			    echo Unknown pair of arguments: "$1" "$2"
-			    echo
-			    exit
-			fi
-			;;
-		 "-burnlatest")
-			 cdrw "$(findlatest)" "$VOLUME"
-			 exit
-			 ;;
-		"-all2usb")
-			rsync_all 
-			exit
-			;;
-		  "-f")
-			# don't check for another running instance
-			USETHEFORCE="true"
-			shift
-			;;
-		  "-KWD")
-			KEEPWORKINGDIR="true"
-			shift
-			;;
-		  *)
-                    help
-                    exit
-                    ;;
+		shift
+		shift
+		;;
+	"-M")
+		if [ "xxx$2" = "xxx" ]
+		then 
+		    echo 
+		    echo Option -M needs an argument!
+		    help
+		    exit
+		fi
+		SRLIMIT="-M $2"
+		shift
+		shift
+		;;
+	"-G")
+		if [ "xxx$2" = "xxx" ]
+		then 
+		    echo 
+		    echo Option -G needs an argument!
+		    help
+		    exit
+		fi
+		SRLIMIT="-M $(( $2 * 1000))"
+		shift
+		shift
+		;;
+	"-s")
+		if [ "xxx$2" = "xxx" ]
+		then 
+		    echo 
+		    echo Option -s needs an argument!
+		    help
+		    exit
+		fi
+		SRLIMIT="-l $2"
+		shift
+		shift
+		;;
+	"-m")
+		if [ "xxx$2" = "xxx" ]
+		then 
+		    echo 
+		    echo Option -m needs an argument!
+		    help
+		    exit
+		fi
+		SRLIMIT="-l $(( $2 * 60))"
+		shift
+		shift
+		;;
+	"-h")
+		if [ "xxx$2" = "xxx" ]
+		then 
+		    echo 
+		    echo Option -h needs an argument!
+		    help
+		    exit
+		fi
+		SRLIMIT="-l $(( $2 * 60 * 60))"
+		shift
+		shift
+		;;
+	"-d")
+		if [ "xxx$2" = "xxx" ]
+		then 
+		    echo 
+		    echo Option -d needs an argument!
+		    help
+		    exit
+		fi
+		SRLIMIT="-l $(( $2 * 60 * 60 * 24))"
+		shift
+		shift
+		;;
+        "-cd")
+		BURN2CD="true"
+		echo
+		echo Songs will be burned to CD-RW after download and trimming.
+		echo Make sure, there is a re-writable disk inserted!
+		echo
+            	shift
+            	;;
+        "-usb")
+		COPY2USB="true"
+		echo
+		echo Songs will be copied to USB after download and trimming.
+		echo Make sure, the device is plugged in!
+		echo
+		shift
+            	;;
+	"-udev")
+		# script has been started by udev
+		#
+		# The reason for using the "at" command here is udev
+		# doesn't run programms that last too long. Burning
+		# a CD or using rsync definately is too long!
+		if [ "$2" = "cd" ]
+		then
+		     echo "$0 -burnlatest" | /usr/bin/at now + 1 minute	
+		     exit			     
+		elif [ "$2" = "usb" ]
+		then
+		     echo "$0 -all2usb" | /usr/bin/at now + 1 minute	
+		     exit			     
+		else
+		    echo
+		    echo Unknown pair of arguments: "$1" "$2"
+		    echo
+		    exit
+		fi
+		;;
+	 "-burnlatest")
+		 cdrw "$(findlatest)" "$VOLUME"
+		 exit
+		 ;;
+	"-all2usb")
+		rsync_all 
+		exit
+		;;
+	  "-f")
+		# don't check for another running instance
+		USETHEFORCE="true"
+		shift
+		;;
+	  "-KWD")
+		KEEPWORKINGDIR="true"
+		shift
+		;;
+	  *)
+		help
+		exit
+                ;;
   esac
 done
 
