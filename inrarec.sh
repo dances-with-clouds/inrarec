@@ -363,7 +363,7 @@ rsync_all()
   else
 
     free=$(df "$USBMUSIC" --output=avail | tail -1)
-    needed=$(du -s "$src" | cut -f1)
+    needed=$(du -s "$RECBASEDIR/" | cut -f1)
     ## turn contents into numerical values:
     free=$(( $free + 1 ))
     needed=$(( $needed + 1 ))
