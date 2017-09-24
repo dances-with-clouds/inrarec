@@ -14,6 +14,6 @@ This saves a lot of time!
 -----------------------------------------------------------------------------------
 Version 2017-09-24:
 
-Inserted an alternative to "tee".
+Inserted an alternative to "tee", just in case it's not installed.
 Made more comments, did some "plastic surgery" to make the code look a bit nicer.
 
