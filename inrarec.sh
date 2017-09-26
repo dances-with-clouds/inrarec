@@ -30,7 +30,7 @@
 # and burned them onto a CD, so I could enjoy the music the next day while
 # driving my truck, without getting bored and annoyed by being forced
 # to listen to the "heavy rotation" loop that most FM radio station 
-# transmit these days and that simply drive my mad. I hate hearing the
+# transmit these days and that simply drive me mad. I hate hearing the
 # same set of songs in the same order three times a day!
 # 
 # While enhancing my script, it grew on me, and I started to include more 
