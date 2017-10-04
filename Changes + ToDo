@@ -17,3 +17,9 @@ Version 2017-09-24:
 Inserted an alternative to "tee", just in case it's not installed.
 Made more comments and did some "plastic surgery" to make the code look a bit nicer.
 
+-----------------------------------------------------------------------------------
+Version 2017-10-04:
+
+Bugfix: adding a slash to the find command "find $RECBASEDIR/ ..." is needed 
+in case $RECBASEDIR is a link.
+
