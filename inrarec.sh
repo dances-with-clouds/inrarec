@@ -6,7 +6,7 @@
 # 
 # A small wrapper for streamripper.
 # 
-# Version/Date: 2017-09-24
+# Version/Date: 2017-10-04
 #
 # This script uses streamripper to record internet streams transmitted by
 # internet radio stations, and then it uses ffmpeg to add a little fading 
@@ -30,7 +30,7 @@
 # and burned them onto a CD, so I could enjoy the music the next day while
 # driving my truck, without getting bored and annoyed by being forced
 # to listen to the "heavy rotation" loop that most FM radio station 
-# transmit these days and that simply drive me mad. I hate hearing the
+# transmit these days and that simply drive my mad. I hate hearing the
 # same set of songs in the same order three times a day!
 # 
 # While enhancing my script, it grew on me, and I started to include more 
@@ -205,7 +205,7 @@ BURNED="$RCDIR/burned"
 # Note: this number counts for all recordings, not per station!
 #
 # MAXRECORDINGS=0
-MAXRECORDINGS=5
+MAXRECORDINGS=7
 
 
 #
@@ -468,27 +468,32 @@ cdrw()
 
 findlatest()
 {	
-  IFS=$TMPIFS
+ 
   touch "$BURNED"
   found=""
-  ALLRECORDINGS=$(find $RECBASEDIR -name '[!.]* - 20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]' -type d -print \
+  ALLRECORDINGS=$(find $RECBASEDIR/ -name '[!.]* - 20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]' -type d -print \
 		  | sed -e 's/^.* \([[:graph:]]\{1,\}\)$/\1 &/' \
 		  | sort \
 		  | sed -e 's/^\([[:graph:]]\{1,\}\) //')
+ 
+  IFS=$TMPIFS
 	
   for recording in $ALLRECORDINGS;
   do
-	    workingdir="$RECBASEDIR/.${recording##*/}"
-	    tocheck=$(grep "${recording##*/}" "$BURNED")
-	    if [ "xxx$tocheck" != "xxx" ]
-	    then
-	      # has been burned before
-	      continue
-	    elif [ -e "$recording" -a ! -e "$workingdir" ]
-	    then
-	      found="$recording"
-	      break
-	    fi
+
+    #echo $recording ; echo
+
+    workingdir="$RECBASEDIR/.${recording##*/}"
+    tocheck=$(grep "${recording##*/}" "$BURNED")
+    if [ "xxx$tocheck" != "xxx" ]
+    then
+      # echo ..."$recording" has been burned before...
+      continue
+    elif [ -e "$recording" -a ! -e "$workingdir" ]
+    then
+      echo "$recording"
+      break
+    fi
   done
 
   IFS=$OLDIFS
