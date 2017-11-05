@@ -6,7 +6,7 @@
 # 
 # A small wrapper for streamripper.
 # 
-# Version/Date: 2017-10-04
+# Version/Date: 2017-11-05
 #
 # This script uses streamripper to record internet streams transmitted by
 # internet radio stations, and then it uses ffmpeg to add a little fading 
@@ -148,7 +148,7 @@ TRIM_END=4
 # Options for streamripper, see "man streamripper". 
 # Can be set in each profile, to use different options per station.
 #
-STREAMRIPPER_OPTS="-o always -T -k 1 -s --with-id3v1 --codeset-filesys=UTF-8 --codeset-id3=UTF-8 --codeset-metadata=UTF-8"
+STREAMRIPPER_OPTS="-o always -T -k 1 -s --with-id3v1 --codeset-filesys=UTF-8 --codeset-id3=iso-8859-1 --codeset-metadata=UTF-8"
 #
 # Note: I highly recomment to use UTF8 as the default locale on your system!
 # If you're not stuck in the previous century, there's no need to use any 
@@ -320,7 +320,7 @@ ${0##*/} [finalaction] [-k] [-p profile] [limit] [-d targetdir]
 
 -k			keep the original downloads from streamripper
 -p profile		which profile to use
--d targetdir		where to store the recording(s).
+-t targetdir		where to store the recording(s).
 
 limit can be one of:
 
@@ -336,10 +336,17 @@ Default station:	Radio Paradise
 
 Alternate usage (use with caution!):
 
-${0##*/} -all2usb | -burnlatest
+${0##*/} -all2usb | -burnlatest | -burn <dir> | -trim <dir> <dest>
 
 -all2usb		copy *all* recordings to a predefined USB drive.
--burnlatest		burn the *latest* recording to a CD-RW.
+-burnnewest		burn the newest recording onto a CD-RW.
+-burnoldest		burn the oldest recording onto a CD-RW. 
+-burn <dir>		burn <dir> onto a CR-RW.
+-trim <source> <dest>	process the songs in <source> and 
+			write them to <dest>. This option can be used, 
+			e.g. if the program crashed after download but before 
+			editing the songs.
+			CAUTION: existing files in <dest> will be overwritten!
 
 EOF
 exit
@@ -397,8 +404,8 @@ rsync_all()
 cdrw()
 {
 
-  src="$1"
-  volume="$2"
+  SRC="$1"
+  VOLUME="$2"
 
   if [ ! -x $CDRECORD ]
   then
@@ -424,7 +431,7 @@ cdrw()
 
     IFS=$TMPIFS	
 
-    if [ "xxx$src" = "xxx" ]	
+    if [ "xxx$SRC" = "xxx" ]	
     then	
 	    echo	
 	    echo I\'ll stay cool because there\'s nothing to burn...	
@@ -441,12 +448,14 @@ cdrw()
       $CDRECORD dev=$DEVICE -force blank=fast -gracetime=0	
       
       echo	
-      echo Burning contents of \"$src\"...	
+      echo Burning contents of \"$SRC\"...	
       echo	
 
-      graft=${src##*/}	
-      ts=$($MKISOFS -quiet -print-size "$src"/)s	
-      $MKISOFS -quiet -V "$volume" -J -R -graft-points "$graft"="$src" \
+      GRAFT=${SRC%*/} # strip trailing slash
+      GRAFT=${GRAFT##*/} # strip full path	
+
+      ts=$($MKISOFS -quiet -print-size "$SRC"/)s	
+      $MKISOFS -quiet -V "$VOLUME" -J -R -graft-points "$GRAFT"="$SRC" \
       | $CDRECORD dev=$DEVICE -sao driveropts=burnfree \
       -gracetime=0 -data -eject fs=16m -tsize=$ts -
 
@@ -454,7 +463,7 @@ cdrw()
       echo Finished!	
       echo	
       
-      [ $? -eq 0 ] && echo "$src" >> $BURNED	
+      [ $? -eq 0 ] && echo "$SRC" >> $BURNED	
 
     else	
 	    echo	
@@ -466,14 +475,14 @@ cdrw()
   fi
 }
 
-findlatest()
+find2burn()
 {	
  
   touch "$BURNED"
   found=""
   ALLRECORDINGS=$(find $RECBASEDIR/ -name '[!.]* - 20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]' -type d -print \
 		  | sed -e 's/^.* \([[:graph:]]\{1,\}\)$/\1 &/' \
-		  | sort \
+		  | sort $SORTORDER \
 		  | sed -e 's/^\([[:graph:]]\{1,\}\) //')
  
   IFS=$TMPIFS
@@ -526,61 +535,131 @@ checkdontlike()
   
 }
 
-
-fadeout()
+trimdir()
 {
-  
-  local FILE="$1"
-  local DEST="$2"
-  local USBDEST="$3"
+    IFS=$TMPIFS
 
-  SONG="${FILE##*/}"
-  LENGTH=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$FILE")
-  LENGTH=${LENGTH%%.*}
-  TRIMLENGTH=$((LENGTH - TRIM_BEGIN - TRIM_END))
-  FADE_OUT_START=$((TRIMLENGTH - FADE_OUT))
+    local WORKINGDIR="$1"
+    local TARGET="$2"
 
-  if [ "$TEATIME" = "true" ]
-  then
+    if [ "xxx$WORKINGDIR" = "xxx" ]
+    then
+	echo Variable "\$WORKINGDIR" is empty! Exiting...
+	exit
+    fi
+
+    if [ "xxx$TARGET" = "xxx" ]
+    then
+	echo "$TARGET" is empty! Exiting...
+	exit
+    fi
+
+    if [ ! -d "$WORKINGDIR" ]
+    then
+	echo "$WORKINGDIR" does not exist! Exiting...
+	exit	
+    fi
+
+    if [ ! -d "$TARGET" ]
+    then
+	echo "$TARGET" does not yet exist! Creating...
+	mkdir -p "$TARGET"
+    fi
+
+    NUMBER=$(ls -1 "$WORKINGDIR"/*.* | wc -l)
+    DIGITS=${#NUMBER}
+    # sort by reverse date (oldest file first):
+    ALLFILES=$(ls -1rt "$WORKINGDIR/"*.*)
+    if [ "xxx$ALLFILES" = "xxx" ]
+    then	
+      echo There are no songs to work on! Exiting...
+      exit
+    fi
+
+    i=1
+    for FILE in $ALLFILES
+    do
+	  NUMBER=$(printf "%0${DIGITS}d\n" $i)
+	  SONGNAME="${FILE##*/}" # stripping path
+	  SONGNAME="${SONGNAME%.*}" # stripping extension
+	  DEST="$TARGET/$NUMBER - $SONGNAME".mp3
     
-    ffmpeg -hide_banner -loglevel 0 -nostats -i "$FILE" -f wav - \
-      | ffmpeg -hide_banner -loglevel 0 -nostats -i - \
-	-ss $TRIM_BEGIN \
-	-t $TRIMLENGTH \
-	-af afade=t=in:ss=0:d=$FADE_IN,afade=t=out:st=$FADE_OUT_START:d=$FADE_OUT \
-	-f mp3 - \
-      | tee "$DEST" "$USBDEST" >/dev/null
-    
-      #
-      # Question: Why am I piping ffmpeg into ffmpeg? 
-      #
-      # Answer: The first ffmpeg converts any input format into 
-      #		wave format, piping it into the second instance, 
-      #		which does the cutting and fading and finally 
-      #		converts it to mp3.
-      #		If ffmpeg is to cut and fade a media file, it needs 
-      #		to know the lenght of the file before it can do its
-      #		work. This is a bit of a problem with certain formats
-      #		like aac. By using two instances of fadecut these 
-      #		problems can be bypassed.
-      #		
-  
-  else 
+	  if [ "$COPY2USB" = "true" ]
+	  then
+	      USBDEST="$USBTARGET/$NUMBER - $SONGNAME".mp3
+	  else
+	      # tee still needs a second file to create:
+	      USBDEST="/dev/null"
+	  fi
 
-    # without tee:
+	  TIMESTAMP="$(date -R -r "$FILE")"
+	  ARTIST=$(ffprobe -v error -show_entries format_tags=artist -of default=noprint_wrappers=1:nokey=1 "$FILE") 
+	  TITLE=$(ffprobe -v error -show_entries format_tags=title -of default=noprint_wrappers=1:nokey=1 "$FILE")
+	  TASTE=$(checkdontlike "$ARTIST" "$TITLE")
 
-    ffmpeg -hide_banner -loglevel 0 -nostats -i "$FILE" -f wav - \
-      | ffmpeg -hide_banner -loglevel 0 -nostats -i - \
-	-ss $TRIM_BEGIN \
-	-t $TRIMLENGTH \
-	-af afade=t=in:ss=0:d=$FADE_IN,afade=t=out:st=$FADE_OUT_START:d=$FADE_OUT \
-	-f mp3 "$DEST"
+	  if [ "$TASTE" = "I like this song!" ]
+	  then
+	      echo $SONGNAME -\> fading out...
+	      SONG="${FILE##*/}"
+	      LENGTH=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$FILE")
+	      LENGTH=${LENGTH%%.*}
+	      TRIMLENGTH=$((LENGTH - TRIM_BEGIN - TRIM_END))
+	      FADE_OUT_START=$((TRIMLENGTH - FADE_OUT))
 
-    (cp "$DEST" "$USBDEST") & 
-    # trying to speed things up a bit by using a subshell
+	      if [ "$TEATIME" = "true" ]
+	      then
+		
+		ffmpeg -hide_banner -loglevel 0 -nostats -i "$FILE" -f wav - \
+		  | ffmpeg -hide_banner -loglevel 0 -nostats -i - \
+		    -ss $TRIM_BEGIN \
+		    -t $TRIMLENGTH \
+		    -af afade=t=in:ss=0:d=$FADE_IN,afade=t=out:st=$FADE_OUT_START:d=$FADE_OUT \
+		    -f mp3 - \
+		  | tee "$DEST" "$USBDEST" >/dev/null
+		
+		  #
+		  # Question: Why am I piping ffmpeg into ffmpeg? 
+		  #
+		  # Answer: The first ffmpeg converts any input format into 
+		  #	wave format, piping it into the second instance, 
+		  #	which does the cutting and fading and finally 
+		  #	converts it to mp3.
+		  #	If ffmpeg is to cut and fade a media file, it needs 
+		  #	to know the lenght of the file before it can do its
+		  #	work. This is a bit of a problem with certain formats
+		  #	like aac. By using two instances of fadecut these 
+		  #	problems can be bypassed.
+		  #		
+	      
+	      else 
 
-  fi
-   
+		# without tee:
+
+		ffmpeg -hide_banner -loglevel 0 -nostats -i "$FILE" -f wav - \
+		  | ffmpeg -hide_banner -loglevel 0 -nostats -i - \
+		    -ss $TRIM_BEGIN \
+		    -t $TRIMLENGTH \
+		    -af afade=t=in:ss=0:d=$FADE_IN,afade=t=out:st=$FADE_OUT_START:d=$FADE_OUT \
+		    -f mp3 "$DEST"
+
+		(cp "$DEST" "$USBDEST") & 
+		# trying to speed things up a bit by using a subshell
+
+	      fi # [ "$TEATIME" = "true" ]
+
+	      touch -c -d "$TIMESTAMP" "$DEST" 
+	      # you can't do a "touch -d" to /dev/null, so check first:
+	      test -f "$USBDEST" && touch -c -d "$TIMESTAMP" "$USBDEST"
+	      i=$(( i + 1))
+	  else
+	      echo $SONGNAME: -\> deleting, because $TASTE!
+	      rm -f "$FILE"
+	  fi
+
+    done # for SONG in $ALLSONGS
+
+    stty sane # needed after piping ffmpeg into ffmpeg. WHY???
+    IFS=$OLDIFS
 }
 
 #####################################################################
@@ -638,7 +717,7 @@ do
 		KEEPORIG="true"
 		shift
 		;;
-	"-d")
+	"-t")
 		RECBASEDIR="$2"
 		mkdir -p "$RECBASEDIR"
 		shift
@@ -768,10 +847,20 @@ do
 		    exit
 		fi
 		;;
-	 "-burnlatest")
-		 cdrw "$(findlatest)" "$VOLUME"
+	 "-burnnewest")
+		 SORTORDER=""
+		 cdrw "$(find2burn)" "$VOLUME"
 		 exit
 		 ;;
+	"-burnoldest")
+		 SORTORDER="-r"
+		 cdrw "$(find2burn)" "$VOLUME"
+		 exit
+		 ;;
+	"-burn")
+		cdrw "$2" "$VOLUME"
+		exit
+		;;
 	"-all2usb")
 		rsync_all 
 		exit
@@ -784,6 +873,10 @@ do
 	  "-KWD")
 		KEEPWORKINGDIR="true"
 		shift
+		;;
+	"-trim")
+		trimdir "$2" "$3"
+		exit
 		;;
 	  *)
 		help
@@ -864,37 +957,37 @@ then
   exit
 fi # [ $RECORDINGS -ge $MAXRECORDINGS ]
 
-echo
-echo $START: Starting recording in \"${WORKINGDIR}\"...
-echo
-
 renice -n 19 $$
 
-mkdir -p "$WORKINGDIR"/{new,error,incomplete,orig}
 
-streamripper $STREAM_URL $STREAMRIPPER_OPTS $SRLIMIT -d "$WORKINGDIR"
+if [ "xxx$TRIMONLY" = "xxx" ];
+then
 
-SR_EX=$?
+	echo
+	echo $START: Starting recording in \"${WORKINGDIR}\"...
+	echo
+
+	mkdir -p "$WORKINGDIR"/{new,error,incomplete,orig}
+
+	streamripper $STREAM_URL $STREAMRIPPER_OPTS $SRLIMIT -d "$WORKINGDIR"
+
+	SR_EX=$?
  
-if [ ! $SR_EX -eq 0 ]
-then	
-  echo
-  echo Streamripper exited with error code $SR_EX!
-  echo
-  exit
-fi
+	if [ ! $SR_EX -eq 0 ]
+	then	
+	  echo
+	  echo Streamripper exited with error code $SR_EX!
+	  echo
+	  exit
+	fi
 
-echo
-echo Download finished!
-echo 
+	echo
+	echo Download finished!
+	echo 
 
-mkdir -p "$TARGET"
+fi # [ "xxx$TRIMONLY" = "xxx" ]
 
 IFS=$TMPIFS
-
-NUMBER=$(ls -1 "$WORKINGDIR"/*.* | wc -l)
-DIGITS=${#NUMBER}
-ALLFILES=""
 
 if [ ! -d "$WORKINGDIR" ]
 then
@@ -902,53 +995,7 @@ then
   exit
 fi
 
-# sort by reverse date (oldest file first):
-ALLFILES=$(ls -1rt "$WORKINGDIR/"*.*)
-if [ "xxx$ALLFILES" = "xxx" ]
-then	
-  echo There are no songs to work on! Exiting...
-  exit
-fi
-
-i=1
-for FILE in $ALLFILES
-do
-      NUMBER=$(printf "%0${DIGITS}d\n" $i)
-
-      SONGNAME="${FILE##*/}" # stripping path
-      SONGNAME="${SONGNAME%.*}" # stripping extension
-      DEST="$TARGET/$NUMBER - $SONGNAME".mp3
- 
-      if [ "$COPY2USB" = "true" ]
-      then
-	  USBDEST="$USBTARGET/$NUMBER - $SONGNAME".mp3
-      else
-	  # tee still needs a second file to create:
-	  USBDEST="/dev/null"
-      fi
-
-      TIMESTAMP="$(date -R -r "$FILE")"
-      ARTIST=$(ffprobe -v error -show_entries format_tags=artist -of default=noprint_wrappers=1:nokey=1 "$FILE") 
-      TITLE=$(ffprobe -v error -show_entries format_tags=title -of default=noprint_wrappers=1:nokey=1 "$FILE")
-      TASTE=$(checkdontlike "$ARTIST" "$TITLE")
-
-      if [ "$TASTE" = "I like this song!" ]
-      then
-	  echo $SONGNAME -\> fading out...
-	  fadeout "$FILE" "$DEST" "$USBDEST"
-	  touch -c -d "$TIMESTAMP" "$DEST" 
-	  # you can't do a "touch -d" to /dev/null, so check first:
-	  test -f "$USBDEST" && touch -c -d "$TIMESTAMP" "$USBDEST"
-	  i=$(( i + 1))
-      else
-	  echo $SONGNAME: -\> deleting, because $TASTE!
-	  rm -f "$FILE"
-      fi
-
-done # for SONG in $ALLSONGS
-
-stty sane # needed after piping ffmpeg into ffmpeg. WHY???
-
+trimdir "$WORKINGDIR" "$TARGET"
 
 if [ "$BURN2CD" = "true" ]
 then
