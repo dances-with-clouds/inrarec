@@ -23,3 +23,23 @@ Version 2017-10-04:
 Bugfix: adding a slash to the find command "find $RECBASEDIR/ ..." is needed 
 in case $RECBASEDIR is a link.
 
+-----------------------------------------------------------------------------------
+Version 2017-11-05:
+
+Bugfix: accidentally I used "-d" for two different options: duration and destination.
+Duration is now "-d", while destination now uses "-t", as in target.
+
+Bugfix: corrected the "graft" option for cdrecord
+
+Added a few more options and features:
+
+-burnnewest		        burn the newest recording onto a CD-RW.
+-burnoldest		        burn the oldest recording onto a CD-RW. 
+-burn <dir>		        burn <dir> onto a CR-RW.
+-trim <source> <dest>	process the songs in <source> and write them to <dest>.
+			                This option can be used, e.g. if the program
+			                crashed after download but before editing the songs.
+                      
+                      CAUTION: existing files in <dest> will be overwritten!
+ 
+ 
