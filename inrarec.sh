@@ -312,15 +312,15 @@ cat<<EOF
 
 Usage:
 
-${0##*/} [finalaction] [-k] [-p profile] [limit] [-d targetdir]
+${0##*/} [-p profile] [limit] [-d targetdir]  [-k] [finalaction] 
+
+-p profile		which profile to use
+-t targetdir		where to store the recording(s).
+-k			keep the original downloads from streamripper
 
 <finalaction> can be one of:
   -cd			burn to cd after ripping and trimming
   -usb 			copy to predefined USB drive after ripping and trimming
-
--k			keep the original downloads from streamripper
--p profile		which profile to use
--t targetdir		where to store the recording(s).
 
 limit can be one of:
 
