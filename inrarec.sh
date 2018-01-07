@@ -6,7 +6,7 @@
 # 
 # A small wrapper for streamripper.
 # 
-# Version/Date: 2017-11-05
+# Version/Date: 2018-01-06
 #
 # This script uses streamripper to record internet streams transmitted by
 # internet radio stations, and then it uses ffmpeg to add a little fading 
@@ -135,9 +135,9 @@ GENRE="Alternative"
 COMMENT="Radio Paradise"
 # all values in seconds:
 FADE_IN=1
-FADE_OUT=5
+FADE_OUT=4
 TRIM_BEGIN=1
-TRIM_END=4
+TRIM_END=2
 # ---------------------- cut here ---------------------
 #
 # Note: the above settings are taken as defaults, if you 
@@ -148,12 +148,29 @@ TRIM_END=4
 # Options for streamripper, see "man streamripper". 
 # Can be set in each profile, to use different options per station.
 #
-STREAMRIPPER_OPTS="-o always -T -k 1 -s --with-id3v1 --codeset-filesys=UTF-8 --codeset-id3=iso-8859-1 --codeset-metadata=UTF-8"
+STREAMRIPPER_OPTS="-o always -T -k 1 -s --with-id3v1"
+
+# Codesets:
+#
+# Which codeset does your filesystem use? 
+#
+CSFS="UTF-8"
 #
 # Note: I highly recomment to use UTF8 as the default locale on your system!
 # If you're not stuck in the previous century, there's no need to use any 
 # other locale any more!
 
+
+#
+# Which codeset is to be used to set ID3 tags?
+# If you set this to UTF, be sure your mp3 player can display UTF8 characters!
+#
+CSID3="iso-8859-1"
+
+# 
+# Which codeset is to be used for meta-data?
+#
+CSMETA="UTF-8"
 
 #
 # Default limit for downloading, can be set via command line option. 
@@ -171,7 +188,7 @@ STREAMRIPPER_OPTS="-o always -T -k 1 -s --with-id3v1 --codeset-filesys=UTF-8 --c
 SRLIMIT="-M 690"
 
 # Do you want to keep streamripper's orinal downloads? (= Untouched by ffmpeg)
-# Can be overwritten/set via command line option "-k".
+# Can be overwritten/set via command line option "-original".
 # Can be set in each profile, to use different settings per station.
 #
 KEEPORIG="false"
@@ -185,8 +202,9 @@ KEEPORIG="false"
 KEEPWORKINGDIR="false"
 #
 
+
 #
-# Base dir to be used for recording, can be set via "-d <director>".
+# Base dir to be used for recording, can be set via "-b <director>".
 # Can also be set in each profile, to use a different directory per station.
 #
 RECBASEDIR=$HOME/internetradio
@@ -241,7 +259,13 @@ DEVICE=/dev/sr0
 # Can be set in each profile, to use different USB devices per station.
 #
 # USBMUSIC=""
-USBMUSIC=/mnt/music
+USBMUSIC=/mnt/music/
+
+# Do you want the recorded sessions to be copied into a specific 
+# sub-directory? If not, just leave the variable empty.
+#
+# USBDIR=""
+USBDIR=internetradio
 
 #
 # Important: to enable this script to automatically mount the USB disk without
@@ -312,27 +336,26 @@ cat<<EOF
 
 Usage:
 
-${0##*/} [-p profile] [limit] [-d targetdir]  [-k] [finalaction] 
+${0##*/} [-p profile] [limit] [-t targetdir]  [-k] [-usb] [-cd] [-korig] [-kwd]
 
--p profile		which profile to use
--t targetdir		where to store the recording(s).
--k			keep the original downloads from streamripper
+-p profile	which profile to use (required)
+-b basedir	which basedir to use for working and storing (optional)
+-t targetdir	alternative dir to store recording after trimming (optional)
+-cd		burn to cd after ripping and trimming (optional)
+-usb		copy to predefined USB drive after trimming (optional)
+-korig		keep the original downloads (optional)
+-kwd		keep the complete working dir (optional)
 
-<finalaction> can be one of:
-  -cd			burn to cd after ripping and trimming
-  -usb 			copy to predefined USB drive after ripping and trimming
+limit can be set like the following examples:
 
-limit can be one of:
+-s 60		60 seconds
+-m 30		30 minutes
+-h 12		12 hours
+-d 2 		2 days
+-M 50		500 MB
+-G 2		2 GB
 
--s 60			60 seconds
--m 30 			30 minutes
--h 12			12 hours
--d 2 			2 days
--M 500 			500 MB
--G 2			2 GB
-
-Default limit: 		700MB
-Default station:	Radio Paradise
+Default limit:	700MB
 
 Alternate usage (use with caution!):
 
@@ -381,17 +404,19 @@ rsync_all()
 	echo Not enough space left on USB device! 
 	echo
     else
+
+      mount $USBMUSIC
+
       for vz in "$RECBASEDIR"/[a-zA-Z0-9]*;
       do
 	# do not sync while working dir exists!
 	if [ ! -d "$RECBASEDIR"/".${vz##*/}" ]
 	then
-	  mount $USBMUSIC
-	  nice -n 19 rsync -a --ignore-existing --exclude ".*/" --exclude ".*" "$vz" "$USBMUSIC"
-	  sync
-	  umount $USBMUSIC
+	  nice -n 19 rsync -a --ignore-existing --delete --exclude ".*/" --exclude ".*" "$vz" "$USBMUSIC/$USBDIR/"
 	fi
       done # for vz in "$RECBASEDIR"/[a-zA-Z0-9]*
+      
+      umount $USBMUSIC
 
     fi # [ $needed -gt $free ];
 
@@ -411,7 +436,7 @@ cdrw()
   then
 
     echo
-    echo Error: cdrecord found or not executable! 
+    echo Error: cdrecord not found or not executable! 
     echo 
     echo Downloading songs is still possible, but if you want to burn them
     echo to a CDRW, cdrecord is required! 
@@ -421,7 +446,7 @@ cdrw()
   then	
 
     echo
-    echo Error: mkisofs found or not executable! 
+    echo Error: mkisofs not found or not executable! 
     echo 
     echo Downloading songs is still possible, but if you want to burn them
     echo to a CDRW, mkisofs is required! 
@@ -535,37 +560,181 @@ checkdontlike()
   
 }
 
-trimdir()
+checkcopy2usb()
 {
-    IFS=$TMPIFS
+  if [ "$COPY2USB" = "true" ]
+  then
+    mount "$USBMUSIC"
 
-    local WORKINGDIR="$1"
-    local TARGET="$2"
-
-    if [ "xxx$WORKINGDIR" = "xxx" ]
+    if ! mountpoint -q "$USBMUSIC";
     then
-	echo Variable "\$WORKINGDIR" is empty! Exiting...
-	exit
+	echo
+	echo USB-Target can not be mounted!
+	echo Songs will not be copied to USB!
+	echo
+	COPY2USB="false"
+    else
+      USBTARGETDIR="$USBMUSIC/${COMMENT} - ${DATE}"
+      mkdir -p "$USBMUSIC"/"${COMMENT} - ${DATE}"
+
     fi
 
-    if [ "xxx$TARGET" = "xxx" ]
-    then
-	echo "$TARGET" is empty! Exiting...
-	exit
-    fi
+  fi # [ "$COPY2USB" = "true" ]
+}
 
-    if [ ! -d "$WORKINGDIR" ]
-    then
-	echo "$WORKINGDIR" does not exist! Exiting...
-	exit	
-    fi
+checkbasedir()
+{
+  
+  if [ "xxx$RECBASEDIR" = "xxx" ]
+  then
+    RECBASEDIR=$HOME/tmp/
+  fi
 
-    if [ ! -d "$TARGET" ]
-    then
-	echo "$TARGET" does not yet exist! Creating...
-	mkdir -p "$TARGET"
-    fi
+  if ! mkdir -p "$RECBASEDIR" ;
+  then 
+    echo "$RECBASEDIR" does not exist and can not be created! Exiting...
+    echo
+    exit
+  fi
+}
 
+checkworkingdir()
+{
+
+  WORKINGDIR="$RECBASEDIR/.${COMMENT} - ${DATE}"
+
+  if [ "$USETHEFORCE" = "false" ]
+  then
+
+    if [ -d "$WORKINGDIR" ]
+    then
+      echo
+      echo Directory \"$WORKINGDIR\" already exists. Is there a recording running?
+      echo 
+      echo Maybe you should use the force, Luke...
+      echo
+      exit
+    fi # [ -d "$WORKINGDIR" ]
+
+    RECORDINGS=$(find "$RECBASEDIR/" -type d -name "[!.]* - 20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]" | wc -l)
+    # I know that this find command is limited to the years 2001 - 2099, 
+    # but I don't assume anyone will use this script after 2099 any more. ;)
+
+  else
+
+    # if argument "-f" is used, we don't check for running instances 
+    # or free disk space!
+    RECORDINGS=0
+
+  fi
+
+  # convert into numerical values:
+  RECORDINGS=$(( $RECORDINGS + 0 ))
+  MAXRECORDINGS=$(( $MAXRECORDINGS + 0 )) 
+  
+  if [ $RECORDINGS -ge $MAXRECORDINGS ]
+  then
+      echo
+      echo Too many recordings found: 
+      echo check $RECBASEDIR and delete unnecessary recordings!
+      echo 
+      echo Maybe you should use the force, Luke...
+      echo
+      exit
+  fi # [ $RECORDINGS -ge $MAXRECORDINGS ]
+
+}
+
+checktargetdir()
+{
+
+  if [ "xxx$TARGETDIR" = "xxx" ]
+  then
+      TARGETDIR="$RECBASEDIR/${COMMENT} - ${DATE}"
+  fi
+  
+  if ! mkdir -p "$TARGETDIR";
+  then 
+    echo "$RECBASEDIR" does not exist and can not be created! Exiting...
+    echo
+    exit
+  fi
+}
+
+
+dostreamripper()
+{
+  echo
+  echo $START: Starting recording in \"${WORKINGDIR}\"...
+  echo
+
+  mkdir -p "$WORKINGDIR"/{new,error,incomplete,orig}
+
+  streamripper $STREAM_URL $STREAMRIPPER_OPTS \
+	--codeset-filesys=$CSFS \
+	--codeset-id3=$CSID3 \
+	--codeset-metadata=$CSMETA \
+	$SRLIMIT -d "$WORKINGDIR"
+
+  SR_EX=$?
+
+  if [ ! $SR_EX -eq 0 ]
+  then	
+    echo
+    echo Streamripper exited with error code $SR_EX!
+    echo
+    exit
+  fi
+
+  echo
+  echo Download finished!
+  echo 
+
+}
+
+checkrcdir()
+{  
+    if [ ! -d "$RECBASEDIR" ]
+    then
+      echo
+      echo $RECBASEDIR does not exist and can not be created!
+      echo
+      echo Create it manually or set the variable RECBASEDIR 
+      echo appropriatly in $RCFILE!
+      echo
+      exit
+    fi
+}
+
+umountusbdrive()
+{
+  if mountpoint -q "$USBMUSIC";
+  then
+   umount "$USBMUSIC" 
+  fi
+}
+
+trimsongs()
+{
+
+  local WORKINGDIR="$1"
+  local TARGETDIR="$2"
+   
+  if [ ! -d "$WORKINGDIR" ]
+  then
+    echo Something strange happened: $WORKINGDIR has vanished! Exiting...
+    exit
+  fi
+
+  if [ ! -d "$TARGETDIR" ]
+  then
+    echo Something strange happened: $TARGETDIR has vanished! Exiting...
+    exit
+  fi
+
+
+  IFS=$TMPIFS
+ 
     NUMBER=$(ls -1 "$WORKINGDIR"/*.* | wc -l)
     DIGITS=${#NUMBER}
     # sort by reverse date (oldest file first):
@@ -577,89 +746,85 @@ trimdir()
     fi
 
     i=1
+
     for FILE in $ALLFILES
     do
+
+      ARTIST=$(ffprobe -v error -show_entries format_tags=artist -of default=noprint_wrappers=1:nokey=1 "$FILE") 
+      TITLE=$(ffprobe -v error -show_entries format_tags=title -of default=noprint_wrappers=1:nokey=1 "$FILE")
+      #SONG="${FILE##*/}"
+      SONGNAME="${FILE##*/}" # stripping path
+      SONGNAME="${SONGNAME%.*}" # stripping extension
+
+      TASTE=$(checkdontlike "$ARTIST" "$TITLE")
+
+      if [ "$TASTE" = "I like this song!" ]
+      then
+	  
+	  TIMESTAMP="$(date -R -r "$FILE")"
+	  LENGTH=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$FILE")
+	  LENGTH=${LENGTH%%.*}
+	  TRIMLENGTH=$((LENGTH - TRIM_BEGIN - TRIM_END))
+	  FADE_OUT_START=$((TRIMLENGTH - FADE_OUT))
 	  NUMBER=$(printf "%0${DIGITS}d\n" $i)
-	  SONGNAME="${FILE##*/}" # stripping path
-	  SONGNAME="${SONGNAME%.*}" # stripping extension
-	  DEST="$TARGET/$NUMBER - $SONGNAME".mp3
-    
+	  DEST="$TARGETDIR/$NUMBER - $SONGNAME".mp3
+	  DOCOPY=""
+	  FFMPEGOUT="\"$DEST\""
+
 	  if [ "$COPY2USB" = "true" ]
 	  then
-	      USBDEST="$USBTARGET/$NUMBER - $SONGNAME".mp3
-	  else
-	      # tee still needs a second file to create:
-	      USBDEST="/dev/null"
-	  fi
-
-	  TIMESTAMP="$(date -R -r "$FILE")"
-	  ARTIST=$(ffprobe -v error -show_entries format_tags=artist -of default=noprint_wrappers=1:nokey=1 "$FILE") 
-	  TITLE=$(ffprobe -v error -show_entries format_tags=title -of default=noprint_wrappers=1:nokey=1 "$FILE")
-	  TASTE=$(checkdontlike "$ARTIST" "$TITLE")
-
-	  if [ "$TASTE" = "I like this song!" ]
-	  then
-	      echo $SONGNAME -\> fading out...
-	      SONG="${FILE##*/}"
-	      LENGTH=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$FILE")
-	      LENGTH=${LENGTH%%.*}
-	      TRIMLENGTH=$((LENGTH - TRIM_BEGIN - TRIM_END))
-	      FADE_OUT_START=$((TRIMLENGTH - FADE_OUT))
-
+	      USBDEST="$USBTARGETDIR/$NUMBER - $SONGNAME".mp3
 	      if [ "$TEATIME" = "true" ]
 	      then
-		
-		ffmpeg -hide_banner -loglevel 0 -nostats -i "$FILE" -f wav - \
-		  | ffmpeg -hide_banner -loglevel 0 -nostats -i - \
-		    -ss $TRIM_BEGIN \
-		    -t $TRIMLENGTH \
-		    -af afade=t=in:ss=0:d=$FADE_IN,afade=t=out:st=$FADE_OUT_START:d=$FADE_OUT \
-		    -f mp3 - \
-		  | tee "$DEST" "$USBDEST" >/dev/null
-		
-		  #
-		  # Question: Why am I piping ffmpeg into ffmpeg? 
-		  #
-		  # Answer: The first ffmpeg converts any input format into 
-		  #	wave format, piping it into the second instance, 
-		  #	which does the cutting and fading and finally 
-		  #	converts it to mp3.
-		  #	If ffmpeg is to cut and fade a media file, it needs 
-		  #	to know the lenght of the file before it can do its
-		  #	work. This is a bit of a problem with certain formats
-		  #	like aac. By using two instances of fadecut these 
-		  #	problems can be bypassed.
-		  #		
-	      
-	      else 
-
-		# without tee:
-
-		ffmpeg -hide_banner -loglevel 0 -nostats -i "$FILE" -f wav - \
-		  | ffmpeg -hide_banner -loglevel 0 -nostats -i - \
-		    -ss $TRIM_BEGIN \
-		    -t $TRIMLENGTH \
-		    -af afade=t=in:ss=0:d=$FADE_IN,afade=t=out:st=$FADE_OUT_START:d=$FADE_OUT \
-		    -f mp3 "$DEST"
-
-		(cp "$DEST" "$USBDEST") & 
-		# trying to speed things up a bit by using a subshell
-
-	      fi # [ "$TEATIME" = "true" ]
-
-	      touch -c -d "$TIMESTAMP" "$DEST" 
-	      # you can't do a "touch -d" to /dev/null, so check first:
-	      test -f "$USBDEST" && touch -c -d "$TIMESTAMP" "$USBDEST"
-	      i=$(( i + 1))
-	  else
-	      echo $SONGNAME: -\> deleting, because $TASTE!
-	      rm -f "$FILE"
+		  FFMPEGOUT="- | tee \"$DEST\" \"$USBDEST\" >/dev/null"
+	      else
+		  DOCOPY="(cp \"$DEST\" \"$USBDEST\")&"
+	      fi
 	  fi
 
-    done # for SONG in $ALLSONGS
+	  ANYTOWAVE="ffmpeg -hide_banner -loglevel 0 -nostats -i \"$FILE\" -f wav -"
+	  WAVETOMP3="ffmpeg -hide_banner -loglevel 0 -nostats -i - -ss $TRIM_BEGIN -t $TRIMLENGTH -af afade=t=in:ss=0:d=$FADE_IN,afade=t=out:st=$FADE_OUT_START:d=$FADE_OUT -f mp3 $FFMPEGOUT"
 
-    stty sane # needed after piping ffmpeg into ffmpeg. WHY???
-    IFS=$OLDIFS
+	  TOTALCMD="$ANYTOWAVE | $WAVETOMP3"
+
+	  #
+	  # Question: 
+	  # Why am I piping ffmpeg into ffmpeg? 
+	  #
+	  # Answer: 
+	  # If ffmpeg is to cut and fade a media file, it needs 
+	  # to know the lenght of the file *before* it can do its work.
+	  # This is a bit of a problem with certain formats like aac. 
+	  # By using two instances of fadecut these problems can be 
+	  # bypassed, because the first ffmpeg converts any input format
+	  # to wave format, piping it into the second instance, which can
+	  # do the cutting and fading and the final converting to mp3.
+	  
+	  echo $SONGNAME -\> fading out...
+	  
+	  #echo "$TOTALCMD"
+	  #echo "$DOCOPY"
+	  eval "$TOTALCMD"
+	  eval "$DOCOPY"
+	  
+	  # restore original timestamp:
+	  # touch -c -d "$TIMESTAMP" "$DEST" 
+
+	  # you can't do a "touch -d" to /dev/null, so check first:
+	  test -f "$USBDEST" && touch -c -d "$TIMESTAMP" "$USBDEST"
+
+	  # next, please!
+	  i=$(( i + 1))
+
+      else
+	      echo $SONGNAME: -\> deleting, because $TASTE!
+	      rm -f "$FILE"
+      fi # [ "$TASTE" = "I like this song!" ]
+
+  done # for SONG in $ALLSONGS
+
+  stty sane # needed after piping ffmpeg into ffmpeg. WHY???
+  IFS=$OLDIFS
 }
 
 #####################################################################
@@ -701,6 +866,7 @@ else
   exit
 fi
 
+renice -n 19 $$
 
 ####
 # Date format, used as part of directory naming - DO NOT CHANGE!!!
@@ -710,19 +876,53 @@ BURN2CD="false"
 COPY2USB="false"
 USETHEFORCE="false"
 
+# command line arguments:
 while [ $# -gt 0 ];
 do
    case "$1" in
-	"-k")
+	"-b")
+		if [ "xxx$2" = "xxx" ]
+		then 
+		    echo 
+		    echo Option -b needs an argument!
+		    help
+		    exit
+		fi
+		RECBASEDIR="$2"
+		shift 2
+		;;
+	"-kwd")
+		KEEPWORKINGDIR="true"
+		shift
+		;;
+	"-korig")
 		KEEPORIG="true"
 		shift
 		;;
 	"-t")
+		if [ "xxx$2" = "xxx" ]
+		then 
+		    echo 
+		    echo Option -t needs an argument!
+		    help
+		    exit
+		fi
+		TARGETDIR="$2"
+		shift 2
+		;;
+	"-r")
+		if [ "xxx$2" = "xxx" ]
+		then 
+		    echo 
+		    echo Option -r needs an argument!
+		    help
+		    exit
+		fi
 		RECBASEDIR="$2"
 		mkdir -p "$RECBASEDIR"
-		shift
-		shift
+		shift 2
 		;;
+	
  	"-p")
 		PROFILE="$2"
 		if [ ! -e "$PROFILEDIR"/"$PROFILE" ]
@@ -734,9 +934,7 @@ do
 		else
 		  . "$PROFILEDIR"/"$PROFILE"
 		fi
-
-		shift
-		shift
+		shift 2
 		;;
 	"-M")
 		if [ "xxx$2" = "xxx" ]
@@ -747,8 +945,7 @@ do
 		    exit
 		fi
 		SRLIMIT="-M $2"
-		shift
-		shift
+		shift 2
 		;;
 	"-G")
 		if [ "xxx$2" = "xxx" ]
@@ -759,8 +956,7 @@ do
 		    exit
 		fi
 		SRLIMIT="-M $(( $2 * 1000))"
-		shift
-		shift
+		shift 2
 		;;
 	"-s")
 		if [ "xxx$2" = "xxx" ]
@@ -771,8 +967,7 @@ do
 		    exit
 		fi
 		SRLIMIT="-l $2"
-		shift
-		shift
+		shift 2
 		;;
 	"-m")
 		if [ "xxx$2" = "xxx" ]
@@ -783,8 +978,7 @@ do
 		    exit
 		fi
 		SRLIMIT="-l $(( $2 * 60))"
-		shift
-		shift
+		shift 2
 		;;
 	"-h")
 		if [ "xxx$2" = "xxx" ]
@@ -795,8 +989,7 @@ do
 		    exit
 		fi
 		SRLIMIT="-l $(( $2 * 60 * 60))"
-		shift
-		shift
+		shift 2
 		;;
 	"-d")
 		if [ "xxx$2" = "xxx" ]
@@ -807,8 +1000,7 @@ do
 		    exit
 		fi
 		SRLIMIT="-l $(( $2 * 60 * 60 * 24))"
-		shift
-		shift
+		shift 2
 		;;
         "-cd")
 		BURN2CD="true"
@@ -829,12 +1021,13 @@ do
 	"-udev")
 		# script has been started by udev
 		#
-		# The reason for using the "at" command here is udev
+		# The reason for using the "at" command here is that udev
 		# doesn't run programms that last too long. Burning
 		# a CD or using rsync definately is too long!
+		#
 		if [ "$2" = "cd" ]
 		then
-		     echo "$0 -burnlatest" | /usr/bin/at now + 1 minute	
+		     echo "$0 -burnoldest" | /usr/bin/at now + 1 minute	
 		     exit			     
 		elif [ "$2" = "usb" ]
 		then
@@ -848,12 +1041,12 @@ do
 		fi
 		;;
 	 "-burnnewest")
-		 SORTORDER=""
+		 SORTORDER="-r"
 		 cdrw "$(find2burn)" "$VOLUME"
 		 exit
 		 ;;
 	"-burnoldest")
-		 SORTORDER="-r"
+		 SORTORDER=""
 		 cdrw "$(find2burn)" "$VOLUME"
 		 exit
 		 ;;
@@ -870,12 +1063,10 @@ do
 		USETHEFORCE="true"
 		shift
 		;;
-	  "-KWD")
-		KEEPWORKINGDIR="true"
-		shift
-		;;
 	"-trim")
-		trimdir "$2" "$3"
+		checkcopy2usb
+		trimsongs "$2" "$3"
+		umountusbdrive
 		exit
 		;;
 	  *)
@@ -885,140 +1076,42 @@ do
   esac
 done
 
-if [ ! -d "$RECBASEDIR" ]
-then
-  echo
-  echo $RECBASEDIR does not exist and can not be created!
-  echo
-  echo Create it manually or set the variable RECBASEDIR 
-  echo appropriatly in $RCFILE!
-  echo
-  exit
-fi
+checkrcdir
 
-WORKINGDIR="$RECBASEDIR/.${COMMENT} - ${DATE}"
-TARGET="$RECBASEDIR/${COMMENT} - ${DATE}"
+checkcopy2usb
 
-if [ "$COPY2USB" = "true" ]
-then
+checkbasedir
 
-  mount "$USBMUSIC"
+checkworkingdir
 
-  if ! mountpoint -q "$USBMUSIC";
-  then
-      echo
-      echo USB-Target can not be mounted!
-      echo Songs will not be copied to USB!
-      echo
-      COPY2USB="false"
-  
-  else
+checktargetdir
 
-    USBTARGET="$USBMUSIC/${COMMENT} - ${DATE}"
-    mkdir -p "$USBMUSIC"/"${COMMENT} - ${DATE}"
+dostreamripper
 
-  fi
-
-fi # [ "$COPY2USB" = "true" ]
-
-if [ "$USETHEFORCE" = "false" ]
-then
-
-  RECORDINGS=$(find "$RECBASEDIR" -type d -name "[!.]* - 20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]" | wc -l)
-  # I know that this find command is limited to the years 2001 - 2099, 
-  # but I don't assume anyone will use this script after 2099 any more. ;)
-
-  if [ -d "$WORKINGDIR" ]
-  then
-    echo
-    echo Directory \"$WORKINGDIR\" already exists. Is there a recording running?
-    echo 
-    echo Maybe you should use the force, Luke...
-    echo
-    exit
-  fi # [ -d "$WORKINGDIR" ]
-
-else
-  RECORDINGS=0
-fi
-
-# convert into numerical values:
-RECORDINGS=$(( $RECORDINGS + 0 ))
-MAXRECORDINGS=$(( $MAXRECORDINGS + 0 )) 
-
-if [ $RECORDINGS -ge $MAXRECORDINGS ]
-then
-  echo
-  echo Too many recordings found: 
-  echo check $RECBASEDIR and delete unnecessary recordings!
-  echo 
-  echo Maybe you should use the force, Luke...
-  echo
-  exit
-fi # [ $RECORDINGS -ge $MAXRECORDINGS ]
-
-renice -n 19 $$
-
-
-if [ "xxx$TRIMONLY" = "xxx" ];
-then
-
-	echo
-	echo $START: Starting recording in \"${WORKINGDIR}\"...
-	echo
-
-	mkdir -p "$WORKINGDIR"/{new,error,incomplete,orig}
-
-	streamripper $STREAM_URL $STREAMRIPPER_OPTS $SRLIMIT -d "$WORKINGDIR"
-
-	SR_EX=$?
- 
-	if [ ! $SR_EX -eq 0 ]
-	then	
-	  echo
-	  echo Streamripper exited with error code $SR_EX!
-	  echo
-	  exit
-	fi
-
-	echo
-	echo Download finished!
-	echo 
-
-fi # [ "xxx$TRIMONLY" = "xxx" ]
-
-IFS=$TMPIFS
-
-if [ ! -d "$WORKINGDIR" ]
-then
-  echo Something strange happened: $WORKINGDIR has vanished! Exiting...
-  exit
-fi
-
-trimdir "$WORKINGDIR" "$TARGET"
+trimsongs "$WORKINGDIR" "$TARGETDIR"
 
 if [ "$BURN2CD" = "true" ]
 then
   echo 
-  echo Burning \"$TARGET\" to CDRW...
+  echo Burning \"$TARGETDIR\" to CDRW...
   echo
-  cdrw "$TARGET" "$VOLUME"
-fi
-
-if [ "$KEEPORIG" = "true" ]
-then
-  mkdir -p "$TARGET"/orig
-  mv "$WORKINGDIR"/*.* "$TARGET"/orig/
-  echo
-  echo You will find the original downloads in \"$TARGET/orig/\"!
-  echo
+  cdrw "$TARGETDIR" "$VOLUME"
 fi
 
 if [ "$COPY2USB" = "true" ]
 then
   umount $USBMUSIC
   echo
-  echo All songs have been copied to $USBTARGET as well. Enjoy!
+  echo All songs have been copied to $USBTARGETDIR as well. Enjoy!
+  echo
+fi
+
+if [ "$KEEPORIG" = "true" ]
+then
+  mkdir -p "$TARGETDIR"/orig
+  mv "$WORKINGDIR"/*.* "$TARGETDIR"/orig/
+  echo
+  echo You will find the original downloads in \"$TARGETDIR/orig/\"!
   echo
 fi
 
@@ -1030,11 +1123,6 @@ then
 else
    rm -rf "$WORKINGDIR"
 fi
-
-
-########################################################################
-
-IFS=$OLDIFS
 
 if [ "xxx$EMAIL" != "xxx" ]
 then
@@ -1049,7 +1137,7 @@ then
       echo
     else
       echo
-      echo ... on \"$TARGET/\" | mail -s "Thank you for the music..." $EMAIL
+      echo ... on \"$TARGETDIR/\" | mail -s "Thank you for the music..." $EMAIL
       echo
     fi
 
@@ -1060,7 +1148,7 @@ else
   TDIFF=$(($(date "+%s" --date="-d $FINISH") - $(date "+%s" --date="-d $START")))
   echo
   echo $FINISH: Done! The job took me $(printf '%02dh:%02dm:%02ds\n' $(($TDIFF/3600)) $(($TDIFF%3600/60)) $(($TDIFF%60))). 
-  echo Check for new music in \"$TARGET/\" and enjoy!
+  echo Check for new music in \"$TARGETDIR/\" and enjoy!
   echo
 
 fi
