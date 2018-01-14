@@ -50,5 +50,9 @@ Version 2018-01-06:
 - added new command line arguments and changed some old ones. Call "inrarec.sh -h" to see.
 - reconstructed some of the code
 
+ -----------------------------------------------------------------------------------
+Version 2018-01-14:
+
+- corrected lots of errors and typos that came with the previous version. (Must have been very tired then...)
 
 
