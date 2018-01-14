@@ -6,7 +6,7 @@
 # 
 # A small wrapper for streamripper.
 # 
-# Version/Date: 2018-01-06
+# Version/Date: 2018-01-14
 #
 # This script uses streamripper to record internet streams transmitted by
 # internet radio stations, and then it uses ffmpeg to add a little fading 
@@ -562,6 +562,9 @@ checkdontlike()
 
 checkcopy2usb()
 {
+
+  local USBMUSIC="$1"
+
   if [ "$COPY2USB" = "true" ]
   then
     mount "$USBMUSIC"
@@ -584,7 +587,9 @@ checkcopy2usb()
 
 checkbasedir()
 {
-  
+
+  local RECBASEDIR="$1" 
+ 
   if [ "xxx$RECBASEDIR" = "xxx" ]
   then
     RECBASEDIR=$HOME/tmp/
@@ -601,52 +606,77 @@ checkbasedir()
 checkworkingdir()
 {
 
+  local RECBASEDIR="$1"
+  local COMMENT="$2"
+  local DATE="$3"
+
   WORKINGDIR="$RECBASEDIR/.${COMMENT} - ${DATE}"
 
   if [ "$USETHEFORCE" = "false" ]
   then
 
-    if [ -d "$WORKINGDIR" ]
-    then
-      echo
-      echo Directory \"$WORKINGDIR\" already exists. Is there a recording running?
-      echo 
-      echo Maybe you should use the force, Luke...
-      echo
-      exit
-    fi # [ -d "$WORKINGDIR" ]
+      if [ -d "$WORKINGDIR" ]
+      then
 
-    RECORDINGS=$(find "$RECBASEDIR/" -type d -name "[!.]* - 20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]" | wc -l)
-    # I know that this find command is limited to the years 2001 - 2099, 
-    # but I don't assume anyone will use this script after 2099 any more. ;)
+	  echo
+	  echo Directory \"$WORKINGDIR\" already exists. Is there a recording running?
+	  echo 
+	  echo Maybe you should use the force, Luke...
+	  echo
+	  exit
+      fi
 
-  else
+  fi # [ "$USETHEFORCE" = "false" ]
 
-    # if argument "-f" is used, we don't check for running instances 
-    # or free disk space!
-    RECORDINGS=0
-
+  
+  if ! mkdir -p "$WORKINGDIR";
+  then
+	      echo
+	      echo "$WORKINGDIR" does not exist and can not be created! Exiting...
+	      echo	
+	      exit
   fi
 
-  # convert into numerical values:
-  RECORDINGS=$(( $RECORDINGS + 0 ))
-  MAXRECORDINGS=$(( $MAXRECORDINGS + 0 )) 
-  
-  if [ $RECORDINGS -ge $MAXRECORDINGS ]
-  then
-      echo
-      echo Too many recordings found: 
-      echo check $RECBASEDIR and delete unnecessary recordings!
-      echo 
-      echo Maybe you should use the force, Luke...
-      echo
-      exit
-  fi # [ $RECORDINGS -ge $MAXRECORDINGS ]
+}
+
+checkmaxrec()
+{
+
+    local RECBASEDIR="$1"
+
+    if [ "$USETHEFORCE" = "false" ]
+    then
+	RECORDINGS=$(find "$RECBASEDIR/" -type d -name "[!.]* - 20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]" | wc -l)
+	# I know that this find command is limited to the years 2001 - 2099, 
+	# but I don't assume anyone will use this script after 2099 any more. ;)
+    else
+
+	# if argument "-f" is used, we don't check for free disk space!
+	RECORDINGS=0
+
+     fi
+
+
+    # convert into numerical values:
+    RECORDINGS=$(( $RECORDINGS + 0 ))
+    MAXRECORDINGS=$(( $MAXRECORDINGS + 0 )) 
+    
+    if [ $RECORDINGS -ge $MAXRECORDINGS ]
+    then
+	echo
+	echo Too many recordings found: 
+	echo check $RECBASEDIR and delete unnecessary recordings!
+	echo 
+	echo Maybe you should use the force, Luke...
+	echo
+	exit
+    fi # [ $RECORDINGS -ge $MAXRECORDINGS ]
 
 }
 
 checktargetdir()
 {
+  local TARGETDIR="$1"
 
   if [ "xxx$TARGETDIR" = "xxx" ]
   then
@@ -655,7 +685,7 @@ checktargetdir()
   
   if ! mkdir -p "$TARGETDIR";
   then 
-    echo "$RECBASEDIR" does not exist and can not be created! Exiting...
+    echo "$TARGETDIR" does not exist and can not be created! Exiting...
     echo
     exit
   fi
@@ -693,14 +723,13 @@ dostreamripper()
 }
 
 checkrcdir()
-{  
-    if [ ! -d "$RECBASEDIR" ]
+{ 
+    local RCDIR="$1"
+ 
+    if [ ! -d "$RCDIR" ]
     then
       echo
-      echo $RECBASEDIR does not exist and can not be created!
-      echo
-      echo Create it manually or set the variable RECBASEDIR 
-      echo appropriatly in $RCFILE!
+      echo Can\'t load configuration, because $RCDIR does not exist! Exiting...
       echo
       exit
     fi
@@ -722,16 +751,11 @@ trimsongs()
    
   if [ ! -d "$WORKINGDIR" ]
   then
-    echo Something strange happened: $WORKINGDIR has vanished! Exiting...
+    echo $WORKINGDIR does not exist! Exiting...
     exit
   fi
 
-  if [ ! -d "$TARGETDIR" ]
-  then
-    echo Something strange happened: $TARGETDIR has vanished! Exiting...
-    exit
-  fi
-
+  checktargetdir "$TARGETDIR"
 
   IFS=$TMPIFS
  
@@ -808,7 +832,7 @@ trimsongs()
 	  eval "$DOCOPY"
 	  
 	  # restore original timestamp:
-	  # touch -c -d "$TIMESTAMP" "$DEST" 
+	  touch -c -d "$TIMESTAMP" "$DEST" 
 
 	  # you can't do a "touch -d" to /dev/null, so check first:
 	  test -f "$USBDEST" && touch -c -d "$TIMESTAMP" "$USBDEST"
@@ -1064,7 +1088,7 @@ do
 		shift
 		;;
 	"-trim")
-		checkcopy2usb
+		checkcopy2usb "$USBMUSIC"
 		trimsongs "$2" "$3"
 		umountusbdrive
 		exit
@@ -1076,15 +1100,17 @@ do
   esac
 done
 
-checkrcdir
+checkrcdir "$RCDIR"
 
-checkcopy2usb
+checkmaxrec "$RECBASEDIR"
 
-checkbasedir
+checkcopy2usb "$USBMUSIC"
 
-checkworkingdir
+checkbasedir "$RECBASEDIR"
 
-checktargetdir
+checkworkingdir "$RECBASEDIR" "$COMMENT" "$DATE"
+
+checktargetdir "$TARGETDIR"
 
 dostreamripper
 
