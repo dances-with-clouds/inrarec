@@ -6,7 +6,7 @@
 # 
 # A small wrapper for streamripper.
 # 
-# Version/Date: 2018-01-14
+# Version/Date: 2018-01-15
 #
 # This script uses streamripper to record internet streams transmitted by
 # internet radio stations, and then it uses ffmpeg to add a little fading 
@@ -562,9 +562,6 @@ checkdontlike()
 
 checkcopy2usb()
 {
-
-  local USBMUSIC="$1"
-
   if [ "$COPY2USB" = "true" ]
   then
     mount "$USBMUSIC"
@@ -588,8 +585,6 @@ checkcopy2usb()
 checkbasedir()
 {
 
-  local RECBASEDIR="$1" 
- 
   if [ "xxx$RECBASEDIR" = "xxx" ]
   then
     RECBASEDIR=$HOME/tmp/
@@ -605,10 +600,6 @@ checkbasedir()
 
 checkworkingdir()
 {
-
-  local RECBASEDIR="$1"
-  local COMMENT="$2"
-  local DATE="$3"
 
   WORKINGDIR="$RECBASEDIR/.${COMMENT} - ${DATE}"
 
@@ -641,9 +632,6 @@ checkworkingdir()
 
 checkmaxrec()
 {
-
-    local RECBASEDIR="$1"
-
     if [ "$USETHEFORCE" = "false" ]
     then
 	RECORDINGS=$(find "$RECBASEDIR/" -type d -name "[!.]* - 20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]" | wc -l)
@@ -653,9 +641,7 @@ checkmaxrec()
 
 	# if argument "-f" is used, we don't check for free disk space!
 	RECORDINGS=0
-
-     fi
-
+    fi
 
     # convert into numerical values:
     RECORDINGS=$(( $RECORDINGS + 0 ))
@@ -671,13 +657,10 @@ checkmaxrec()
 	echo
 	exit
     fi # [ $RECORDINGS -ge $MAXRECORDINGS ]
-
 }
 
 checktargetdir()
 {
-  local TARGETDIR="$1"
-
   if [ "xxx$TARGETDIR" = "xxx" ]
   then
       TARGETDIR="$RECBASEDIR/${COMMENT} - ${DATE}"
@@ -724,8 +707,7 @@ dostreamripper()
 
 checkrcdir()
 { 
-    local RCDIR="$1"
- 
+  
     if [ ! -d "$RCDIR" ]
     then
       echo
@@ -745,17 +727,14 @@ umountusbdrive()
 
 trimsongs()
 {
-
-  local WORKINGDIR="$1"
-  local TARGETDIR="$2"
-   
+ 
   if [ ! -d "$WORKINGDIR" ]
   then
     echo $WORKINGDIR does not exist! Exiting...
     exit
   fi
 
-  checktargetdir "$TARGETDIR"
+  checktargetdir
 
   IFS=$TMPIFS
  
@@ -1088,8 +1067,10 @@ do
 		shift
 		;;
 	"-trim")
-		checkcopy2usb "$USBMUSIC"
-		trimsongs "$2" "$3"
+		checkcopy2usb
+		WORKINGDIR="$2"
+		TARGETDIR="$3"
+		trimsongs
 		umountusbdrive
 		exit
 		;;
@@ -1100,21 +1081,21 @@ do
   esac
 done
 
-checkrcdir "$RCDIR"
+checkrcdir
 
-checkmaxrec "$RECBASEDIR"
+checkmaxrec
 
-checkcopy2usb "$USBMUSIC"
+checkcopy2usb
 
-checkbasedir "$RECBASEDIR"
+checkbasedir
 
-checkworkingdir "$RECBASEDIR" "$COMMENT" "$DATE"
+checkworkingdir
 
-checktargetdir "$TARGETDIR"
+checktargetdir
 
 dostreamripper
 
-trimsongs "$WORKINGDIR" "$TARGETDIR"
+trimsongs
 
 if [ "$BURN2CD" = "true" ]
 then
