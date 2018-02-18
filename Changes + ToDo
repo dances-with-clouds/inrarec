@@ -55,4 +55,10 @@ Version 2018-01-15:
 
 - corrected lots of errors and typos that came with the previous version. (Must have been very tired then...)
 
+-----------------------------------------------------------------------------------
+Version 2018-02-18:
+
+- new commandline option "-cleanhistory" to keep the history file from growing too large
+
+If you call "inrarec.sh -cleanhistory" once a week or so, it will remove all directories which have already been burned.
 
