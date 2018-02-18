@@ -6,7 +6,7 @@
 # 
 # A small wrapper for streamripper.
 # 
-# Version/Date: 2018-01-15
+# Version/Date: 2018-02-18
 #
 # This script uses streamripper to record internet streams transmitted by
 # internet radio stations, and then it uses ffmpeg to add a little fading 
@@ -378,6 +378,9 @@ exit
 
 rsync_all()
 {
+
+  # echo $RECBASEDIR
+
   IFS=$TMPIFS
 
   if [ ! -x $(which rsync) ]
@@ -397,7 +400,7 @@ rsync_all()
     ## turn contents into numerical values:
     free=$(( $free + 1 ))
     needed=$(( $needed + 1 ))
-
+    
     if [ $needed -gt $free ];
     then
 	echo
@@ -412,7 +415,7 @@ rsync_all()
 	# do not sync while working dir exists!
 	if [ ! -d "$RECBASEDIR"/".${vz##*/}" ]
 	then
-	  nice -n 19 rsync -a --ignore-existing --delete --exclude ".*/" --exclude ".*" "$vz" "$USBMUSIC/$USBDIR/"
+	  nice -n 19 rsync -a --ignore-existing --delete --delete-excluded --force --exclude ".*/" --exclude ".*" "$vz" "$USBMUSIC/$USBDIR/"
 	fi
       done # for vz in "$RECBASEDIR"/[a-zA-Z0-9]*
       
@@ -830,6 +833,19 @@ trimsongs()
   IFS=$OLDIFS
 }
 
+cleanhistory()
+{
+
+  while read vz
+  do 
+    rm -rf "$vz"
+  done < $BURNED
+
+  rm -rf $BURNED
+  touch $BURNED
+
+}
+
 #####################################################################
 
 if [ ! -x $(which streamripper) ]
@@ -1072,6 +1088,10 @@ do
 		TARGETDIR="$3"
 		trimsongs
 		umountusbdrive
+		exit
+		;;
+	"-cleanhistory")
+		cleanhistory
 		exit
 		;;
 	  *)
