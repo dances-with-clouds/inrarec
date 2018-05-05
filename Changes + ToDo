@@ -62,3 +62,8 @@ Version 2018-02-18:
 
 If you call "inrarec.sh -cleanhistory" once a week or so, it will remove all directories which have already been burned.
 
+-----------------------------------------------------------------------------------
+Version 2018-05-05:
+
+- added command line option "-write_id3v1 1" to ffmpeg
+- some minor changes to the ffmpeg code line to make it a bit more nice looking
