@@ -6,7 +6,7 @@
 # 
 # A small wrapper for streamripper.
 # 
-# Version/Date: 2018-02-18
+# Version/Date: 2018-05-05
 #
 # This script uses streamripper to record internet streams transmitted by
 # internet radio stations, and then it uses ffmpeg to add a little fading 
@@ -150,6 +150,11 @@ TRIM_END=2
 #
 STREAMRIPPER_OPTS="-o always -T -k 1 -s --with-id3v1"
 
+# Do you want ffmpeg to write id3v1 tags?
+# If not, uncomment the next line and comment the line after that:
+# FFMPEGID3V1=""
+FFMPEGID3V1="-write_id3v1 1"
+
 # Codesets:
 #
 # Which codeset does your filesystem use? 
@@ -265,7 +270,7 @@ USBMUSIC=/mnt/music/
 # sub-directory? If not, just leave the variable empty.
 #
 # USBDIR=""
-USBDIR=internetradio
+USBDIR="_internetradio"
 
 #
 # Important: to enable this script to automatically mount the USB disk without
@@ -751,6 +756,8 @@ trimsongs()
       exit
     fi
 
+    FFMPEG="ffmpeg -hide_banner -loglevel 0 -nostats"
+    
     i=1
 
     for FILE in $ALLFILES
@@ -788,8 +795,14 @@ trimsongs()
 	      fi
 	  fi
 
-	  ANYTOWAVE="ffmpeg -hide_banner -loglevel 0 -nostats -i \"$FILE\" -f wav -"
-	  WAVETOMP3="ffmpeg -hide_banner -loglevel 0 -nostats -i - -ss $TRIM_BEGIN -t $TRIMLENGTH -af afade=t=in:ss=0:d=$FADE_IN,afade=t=out:st=$FADE_OUT_START:d=$FADE_OUT -f mp3 $FFMPEGOUT"
+	  TRIMOPTIONS="-ss $TRIM_BEGIN -t $TRIMLENGTH -af afade=t=in:ss=0:d=$FADE_IN,afade=t=out:st=$FADE_OUT_START:d=$FADE_OUT"
+
+	  ANYTOWAVE="$FFMPEG -i \"$FILE\" -f wav -"
+	  WAVETOMP3="$FFMPEG -i - $TRIMOPTIONS $FFMPEGID3V1 -f mp3 $FFMPEGOUT"
+
+	  # ANYTOWAVE="ffmpeg -hide_banner -loglevel 0 -nostats -i \"$FILE\" -f wav -"
+          #WAVETOMP3="ffmpeg -hide_banner -loglevel 0 -nostats -i - -ss $TRIM_BEGIN -t $TRIMLENGTH -af afade=t=in:ss=0:d=$FADE_IN,afade=t=out:st=$FADE_OUT_START:d=$FADE_OUT -f mp3 $FFMPEGOUT"
+
 
 	  TOTALCMD="$ANYTOWAVE | $WAVETOMP3"
 
